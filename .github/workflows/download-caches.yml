@@ -1,0 +1,87 @@
+name: Download Caches
+
+on:
+  workflow_dispatch:
+
+env:
+  ARTIFACT_RELEASE_TAG: "artifact"
+
+jobs:
+  download-caches:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 1
+
+      - name: Restore submodules cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .git/modules
+            app/src/main/cpp
+          key: submodules-restore-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            submodules-
+
+      - name: Restore gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            .gradle
+            minecraft/build/generated
+            minecraft/build/intermediates
+            minecraft-msftauth/build/generated
+            minecraft-msftauth/build/intermediates
+          key: gradle-restore-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            gradle-Linux-
+
+      - name: Zip submodules cache
+        run: |
+          tar -czf submodules-cache.tar.gz \
+            .git/modules \
+            app/src/main/cpp/external/libHttpClient \
+            app/src/main/cpp/unpaircore \
+            2>/dev/null || true
+          ls -lh submodules-cache.tar.gz
+
+      - name: Zip gradle cache
+        run: |
+          tar -czf gradle-cache.tar.gz \
+            -C ~ \
+            .gradle/caches \
+            .gradle/wrapper \
+            2>/dev/null || true
+          tar -rzf gradle-cache.tar.gz .gradle minecraft/build/generated minecraft/build/intermediates minecraft-msftauth/build/generated minecraft-msftauth/build/intermediates 2>/dev/null || true
+          ls -lh gradle-cache.tar.gz
+
+      - name: Ensure artifact release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} 2>/dev/null; then
+            gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
+              --title "Artifact Storage" \
+              --notes "Temporary storage for build artifacts. Do not delete." \
+              --draft=false --prerelease=false
+          fi
+
+      - name: Upload caches to artifact release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} submodules-cache.tar.gz 2>/dev/null || true
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} gradle-cache.tar.gz 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} \
+            submodules-cache.tar.gz \
+            gradle-cache.tar.gz \
+            --clobber
+          echo "=== 上传完成 ==="
+          gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --json assets -q '.assets[].name'

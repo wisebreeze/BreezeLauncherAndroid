@@ -1,0 +1,197 @@
+name: 'Android CI'
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version increment type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+      custom_version:
+        description: 'Custom version number'
+        required: false
+        default: ''
+
+env:
+  GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
+  APP_NAME: "BreezeLauncher"
+  JAVA_VERSION: "21"
+  ARTIFACT_RELEASE_TAG: "artifact"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Cache submodules
+        id: cache-submodules
+        uses: actions/cache@v4
+        with:
+          # Only cache git's internal submodule store, NOT app/src/main/cpp
+          # (which also contains main-repo files like breeze/ that change per commit).
+          path: .git/modules
+          key: submodules-${{ hashFiles('.gitmodules') }}-${{ runner.os }}
+          restore-keys: submodules-${{ hashFiles('.gitmodules') }}-
+
+      - name: Init submodules
+        # Use the commit recorded in the parent repo (no --remote) so we
+        # don't fetch from upstream. This pins the build to the exact
+        # submodule SHA checked into main, making builds reproducible and
+        # faster (no extra network round-trip to the submodule remote).
+        run: git submodule update --init --recursive --depth=1
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+        timeout-minutes: 8
+
+      - name: Cache build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/build
+            minecraft/build
+          # Key on gradle config that affects the build graph, but
+          # EXCLUDE build.gradle.kts so version bumps don't bust the
+          # cache. Only gradle.properties / libs.versions.toml /
+          # settings.gradle.kts participate in the hash.
+          #
+          # Also key on the hash of all strings.xml files. Gradle's
+          # incremental mergeResources task does not reliably detect
+          # cross-commit changes to source resource files when the
+          # build cache is restored from an older commit, which leads
+          # to AAPT failing on stale merged XML. Including the strings
+          # hash in the key means: translations unchanged → cache hit
+          # (fast); translations changed → cache miss, full re-merge
+          # (correct). The restore-keys fallback is scoped to the same
+          # strings hash so it can never pull in a stale-translation
+          # cache.
+          key: build-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: gradle
+
+      - name: Setup Android NDK Environment
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+
+      - name: Grant Execute Permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Inject API Keys
+        env:
+          CF_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
+        run: echo "curseforge.api_key=${CF_API_KEY}" >> local.properties
+
+      - name: Setup APK name
+        id: apk_name
+        run: |
+          echo "build_type=release" >> $GITHUB_OUTPUT
+          echo "assemble_task=assembleRelease" >> $GITHUB_OUTPUT
+          echo "apk_dir=app/build/outputs/apk/release" >> $GITHUB_OUTPUT
+          echo "final_name=${{ env.APP_NAME }}-release.apk" >> $GITHUB_OUTPUT
+
+      - name: Build APK
+        run: |
+          echo "Building ${{ steps.apk_name.outputs.build_type }} APK..."
+          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} --no-daemon --parallel --build-cache --warn
+
+      - name: Decode and setup keystore
+        # The release APK is signed with the production keystore. The
+        # app's AppInitializer signature check rejects any APK whose
+        # signing certificate SHA-256 != CONFIG_KEY, so the default
+        # debug keystore would crash on startup. Signing with the
+        # production keystore makes the release build runnable on a
+        # real device.
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+
+      - name: Sign APK with custom keystore
+        run: |
+          APK_IN=$(find ${{ steps.apk_name.outputs.apk_dir }} -name "*.apk" | head -1)
+          APK_OUT="${{ env.APP_NAME }}-${{ steps.apk_name.outputs.build_type }}-signed.apk"
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          java -jar $BUILD_TOOLS/lib/apksigner.jar sign \
+            --ks keystore.jks \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASS }} \
+            --key-pass pass:${{ secrets.KEY_PASS }} \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled true \
+            --out "$APK_OUT" \
+            "$APK_IN"
+          mv "$APK_OUT" "${{ steps.apk_name.outputs.final_name }}"
+          rm -f "$APK_IN"
+          rm -f keystore.jks
+
+      - name: Ensure artifact release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} 2>/dev/null; then
+            echo "Creating artifact release: ${{ env.ARTIFACT_RELEASE_TAG }}"
+            gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
+              --title "Artifact Storage" \
+              --notes "Temporary storage for build artifacts. Do not delete." \
+              --draft=false --prerelease=false
+          else
+            echo "Artifact release already exists."
+          fi
+
+      - name: Verify APK signature
+        run: |
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
+          java -jar $BUILD_TOOLS/lib/apksigner.jar verify --print-certs "${{ steps.apk_name.outputs.final_name }}"
+
+      - name: Upload APK to artifact release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK_FILE="${{ steps.apk_name.outputs.final_name }}"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber
+          echo "Uploaded $APK_FILE to artifact release"
+
+      - name: Cleanup stale build caches
+        # GitHub only evicts caches when the 10GB repo limit is hit
+        # (LRU), so caches keyed on github.sha from old commits linger
+        # indefinitely. Each commit creates a new build-{...}-{sha}
+        # cache that is never read again once the next commit lands,
+        # so they pile up and slow down `gh cache list` / restore-key
+        # matching. This step deletes build- caches not accessed in
+        # the last 7 days. Runs with `if: always()` so cleanup still
+        # happens when an earlier step fails.
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh cache list --key "build-" --json id,key,lastAccessedAt --limit 200 | \
+            python3 -c '
+          import sys, json, datetime
+          cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
+          for c in json.load(sys.stdin):
+              la = datetime.datetime.fromisoformat(c["lastAccessedAt"].replace("Z", "+00:00"))
+              if la < cutoff:
+                  print(c["id"])
+          ' | while read -r id; do
+            if [ -n "$id" ]; then
+              echo "Deleting stale cache id=$id"
+              gh cache delete "$id" --confirm || true
+            fi
+          done
