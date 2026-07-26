@@ -26,7 +26,7 @@ jobs:
           git clone --depth=1 https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
 
       - name: Restore submodules cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .git/modules
@@ -45,7 +45,7 @@ jobs:
           git submodule update --init --recursive --depth=1
 
       - name: Restore gradle cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches

@@ -35,17 +35,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: "21"
-          distribution: temurin
-          cache: gradle
-
       - name: Checkout private source repo
         # Clone the private BreezeLauncher repo (full history needed for
-        # version tags / gradle versioning). PAT must have `repo` scope
-        # (or fine-grained: Contents: Read on BreezeLauncher).
+        # version tags / gradle versioning). MUST run before setup-java
+        # with `cache: gradle`, otherwise setup-java finds no gradle
+        # files to hash and fails with "No file matched". PAT must have
+        # `repo` scope (or fine-grained: Contents: Read on BreezeLauncher).
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
@@ -62,9 +57,18 @@ jobs:
         id: private_sha
         run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Setup Java JDK
+        # Must come AFTER checkout so `cache: gradle` can locate
+        # gradle-wrapper.properties / libs.versions.toml in the workspace.
+        uses: actions/setup-java@v5
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: gradle
+
       - name: Cache submodules
         id: cache-submodules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Only cache git's internal submodule store, NOT app/src/main/cpp
           # (which also contains main-repo files like breeze/ that change per commit).
@@ -83,7 +87,7 @@ jobs:
         timeout-minutes: 8
 
       - name: Cache build outputs
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             app/build
