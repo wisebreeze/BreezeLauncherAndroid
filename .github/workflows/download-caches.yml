@@ -1,22 +1,29 @@
 name: Download Caches
 
+# This workflow also runs on the public BreezeLauncherAndroid repo. It
+# clones the private BreezeLauncher source to assemble the cache bundle,
+# but uploads the bundle to the artifact release on the PRIVATE repo so
+# the cache backup never lives on the public repo.
+
 on:
   workflow_dispatch:
 
 env:
   ARTIFACT_RELEASE_TAG: "artifact"
+  PRIVATE_REPO: "wisebreeze/BreezeLauncher"
 
 jobs:
   download-caches:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: write
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-          fetch-depth: 1
+      - name: Checkout private source repo
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git clone --depth=1 https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
 
       - name: Restore submodules cache
         uses: actions/cache@v4
@@ -27,6 +34,15 @@ jobs:
           key: submodules-restore-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             submodules-
+
+      - name: Init submodules (shallow)
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          GIT_LFS_SKIP_SMUDGE: 1
+        run: |
+          # Submodule URLs may also point to private repos; rewrite to use PAT
+          git config --global url."https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git submodule update --init --recursive --depth=1
 
       - name: Restore gradle cache
         uses: actions/cache@v4
@@ -62,26 +78,28 @@ jobs:
           tar -rzf gradle-cache.tar.gz .gradle minecraft/build/generated minecraft/build/intermediates minecraft-msftauth/build/generated minecraft-msftauth/build/intermediates 2>/dev/null || true
           ls -lh gradle-cache.tar.gz
 
-      - name: Ensure artifact release exists
+      - name: Ensure artifact release exists (on private repo)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
-          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} 2>/dev/null; then
+          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ env.PRIVATE_REPO }} 2>/dev/null; then
             gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
+              --repo ${{ env.PRIVATE_REPO }} \
               --title "Artifact Storage" \
               --notes "Temporary storage for build artifacts. Do not delete." \
               --draft=false --prerelease=false
           fi
 
-      - name: Upload caches to artifact release
+      - name: Upload caches to artifact release (on private repo)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} submodules-cache.tar.gz 2>/dev/null || true
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} gradle-cache.tar.gz 2>/dev/null || true
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} submodules-cache.tar.gz --repo ${{ env.PRIVATE_REPO }} 2>/dev/null || true
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} gradle-cache.tar.gz --repo ${{ env.PRIVATE_REPO }} 2>/dev/null || true
           gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} \
             submodules-cache.tar.gz \
             gradle-cache.tar.gz \
-            --clobber
-          echo "=== 上传完成 ==="
-          gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --json assets -q '.assets[].name'
+            --clobber \
+            --repo ${{ env.PRIVATE_REPO }}
+          echo "=== Upload complete ==="
+          gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ env.PRIVATE_REPO }} --json assets -q '.assets[].name'

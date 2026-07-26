@@ -1,5 +1,11 @@
 name: 'Android CI'
 
+# This workflow lives in the public BreezeLauncherAndroid repo purely to
+# consume GitHub Actions free minutes (2000/min/month for private repos).
+# Source code is cloned from the private BreezeLauncher repo at build time,
+# and the signed APK is uploaded to a release on the PRIVATE repo. Neither
+# source code nor release artifacts ever live in this public repo.
+
 on:
   workflow_dispatch:
     inputs:
@@ -23,15 +29,38 @@ env:
   APP_NAME: "BreezeLauncher"
   JAVA_VERSION: "21"
   ARTIFACT_RELEASE_TAG: "artifact"
+  PRIVATE_REPO: "wisebreeze/BreezeLauncher"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
         with:
-          fetch-depth: 0
+          java-version: "21"
+          distribution: temurin
+          cache: gradle
+
+      - name: Checkout private source repo
+        # Clone the private BreezeLauncher repo (full history needed for
+        # version tags / gradle versioning). PAT must have `repo` scope
+        # (or fine-grained: Contents: Read on BreezeLauncher).
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git clone https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
+          git config user.name "wisebreeze"
+          git config user.email "wisebreeze@users.noreply.github.com"
+
+      - name: Capture private repo SHA
+        # github.sha refers to the public repo's commit (workflow file
+        # commit), which does NOT change when only the private repo's
+        # source changes. Cache keyed on github.sha would be reused
+        # across builds of different private source, causing stale
+        # builds. Use the private repo's HEAD SHA instead.
+        id: private_sha
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Cache submodules
         id: cache-submodules
@@ -74,16 +103,13 @@ jobs:
           # (correct). The restore-keys fallback is scoped to the same
           # strings hash so it can never pull in a stale-translation
           # cache.
-          key: build-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ github.sha }}
+          #
+          # Key on the private repo's HEAD SHA (not github.sha which is
+          # this public repo's workflow commit SHA — it would be stale
+          # across builds of different private source).
+          key: build-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ steps.private_sha.outputs.sha }}
           restore-keys: |
             build-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
-
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          java-version: "21"
-          distribution: temurin
-          cache: gradle
 
       - name: Setup Android NDK Environment
         run: |
@@ -140,13 +166,16 @@ jobs:
           rm -f "$APK_IN"
           rm -f keystore.jks
 
-      - name: Ensure artifact release exists
+      - name: Ensure artifact release exists (on private repo)
+        # Releases are created on the PRIVATE repo, not this public one.
+        # PAT must have Contents: Write on BreezeLauncher.
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
-          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} 2>/dev/null; then
+          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ env.PRIVATE_REPO }} 2>/dev/null; then
             echo "Creating artifact release: ${{ env.ARTIFACT_RELEASE_TAG }}"
             gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
+              --repo ${{ env.PRIVATE_REPO }} \
               --title "Artifact Storage" \
               --notes "Temporary storage for build artifacts. Do not delete." \
               --draft=false --prerelease=false
@@ -159,24 +188,26 @@ jobs:
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
           java -jar $BUILD_TOOLS/lib/apksigner.jar verify --print-certs "${{ steps.apk_name.outputs.final_name }}"
 
-      - name: Upload APK to artifact release
+      - name: Upload APK to artifact release (on private repo)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
           APK_FILE="${{ steps.apk_name.outputs.final_name }}"
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" 2>/dev/null || true
-          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber
-          echo "Uploaded $APK_FILE to artifact release"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo ${{ env.PRIVATE_REPO }} 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ env.PRIVATE_REPO }}
+          echo "Uploaded $APK_FILE to artifact release on ${{ env.PRIVATE_REPO }}"
 
       - name: Cleanup stale build caches
-        # GitHub only evicts caches when the 10GB repo limit is hit
-        # (LRU), so caches keyed on github.sha from old commits linger
-        # indefinitely. Each commit creates a new build-{...}-{sha}
-        # cache that is never read again once the next commit lands,
-        # so they pile up and slow down `gh cache list` / restore-key
-        # matching. This step deletes build- caches not accessed in
-        # the last 7 days. Runs with `if: always()` so cleanup still
-        # happens when an earlier step fails.
+        # Caches live on THIS public repo (caches are scoped per-repo
+        # and cannot be shared across repos). GitHub only evicts caches
+        # when the 10GB repo limit is hit (LRU), so caches keyed on
+        # private repo SHA from old commits linger indefinitely. Each
+        # private commit creates a new build-{...}-{sha} cache that is
+        # never read again once the next commit lands, so they pile up
+        # and slow down `gh cache list` / restore-key matching. This
+        # step deletes build- caches not accessed in the last 7 days.
+        # Runs with `if: always()` so cleanup still happens when an
+        # earlier step fails.
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
