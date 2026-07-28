@@ -201,6 +201,34 @@ jobs:
           gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ env.PRIVATE_REPO }}
           echo "Uploaded $APK_FILE to artifact release on ${{ env.PRIVATE_REPO }}"
 
+      - name: Ensure artifact release exists (on public repo)
+        # Also publish the APK on THIS public repo so external users
+        # can download it without access to the private repo. Uses the
+        # default GITHUB_TOKEN which has Contents: Write on the repo
+        # where the workflow runs.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ github.repository }} 2>/dev/null; then
+            echo "Creating artifact release on public repo: ${{ env.ARTIFACT_RELEASE_TAG }}"
+            gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
+              --repo ${{ github.repository }} \
+              --title "BreezeLauncher Build Artifacts" \
+              --notes "Automated build artifacts from CI. The latest APK is always attached to this release." \
+              --draft=false --prerelease=false
+          else
+            echo "Artifact release already exists on public repo."
+          fi
+
+      - name: Upload APK to artifact release (on public repo)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK_FILE="${{ steps.apk_name.outputs.final_name }}"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo ${{ github.repository }} 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ github.repository }}
+          echo "Uploaded $APK_FILE to artifact release on ${{ github.repository }}"
+
       - name: Cleanup stale build caches
         # Caches live on THIS public repo (caches are scoped per-repo
         # and cannot be shared across repos). GitHub only evicts caches
