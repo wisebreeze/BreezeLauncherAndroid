@@ -34,6 +34,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      # GITHUB_TOKEN needs contents:write to create releases and
+      # upload assets on THIS public repo. The private repo upload
+      # uses PRIVATE_REPO_TOKEN separately and is unaffected.
+      contents: write
     steps:
       - name: Checkout private source repo
         # Clone the private BreezeLauncher repo (full history needed for
