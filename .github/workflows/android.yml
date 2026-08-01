@@ -16,21 +16,6 @@ name: 'Android CI'
 
 on:
   workflow_dispatch:
-    inputs:
-      version_type:
-        description: 'Version increment type'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - custom
-      custom_version:
-        description: 'Custom version number'
-        required: false
-        default: ''
 
 env:
   GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
