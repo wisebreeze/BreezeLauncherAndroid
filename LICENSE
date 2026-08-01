@@ -1,20 +1,3 @@
-## Open Source Acknowledgements
-
-This repository's CI pipeline is built on the following open-source projects:
-
-- **[GitHub Actions](https://docs.github.com/en/actions)** — workflow runner and CI/CD automation
-- **[actions/checkout](https://github.com/actions/checkout)** — repository checkout action
-- **[actions/setup-java](https://github.com/actions/setup-java)** — JDK setup and Gradle caching
-- **[actions/cache](https://github.com/actions/cache)** — build artifact and submodule caching
-- **[GitHub CLI (gh)](https://cli.github.com/)** — release and asset management
-- **[Eclipse Temurin](https://adoptium.net/temurin/)** — OpenJDK 21 distribution
-- **[Android SDK Build-Tools](https://developer.android.com/tools/releases/build-tools)** — APK packaging and signing (apksigner)
-- **[Python](https://www.python.org/)** — stale cache cleanup scripting
-
-The built application itself (source in a separate private repository) also depends on numerous open-source libraries, whose attributions are bundled within each release APK.
-
----
-
 Copyright © 2026 wisebreeze. All rights reserved.
 
 Unauthorized copying, modification, distribution, or reverse engineering of this software, in whole or in part, is strictly prohibited without prior written permission from the copyright holder.

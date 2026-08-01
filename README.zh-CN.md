@@ -34,6 +34,63 @@ BreezeLauncher 是一款面向 Android 平台 Minecraft 的现代化高性能启
 | `preloader` | `org.levimc.launcher` | LeviLaunchroid 兼容构建 |
 | `antutu` | `com.antutu.ABenchMark` | 伪装跑分类构建 |
 
+## 开源代码致谢
+
+BreezeLauncher 基于以下开源项目构建：
+
+**AndroidX / Jetpack**
+- [AndroidX](https://developer.android.com/jetpack/androidx) — AppCompat、Activity、Fragment、Annotation、Browser、ConstraintLayout、Core Splashscreen、Dynamic Animation、Preference、Lifecycle、Room、SQLite、Work Manager
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) — UI 工具包（Compose UI、Material3、Material Icons）
+- [AndroidX Media3](https://developer.android.com/media/media3) — 媒体播放（ExoPlayer、UI）
+- [AndroidX Games Activity](https://developer.android.com/games/agk/activity) — 原生 Activity 封装
+
+**Kotlin / 构建**
+- [Kotlin](https://kotlinlang.org/) — 编程语言与 Compose 编译器插件
+- [Android Gradle Plugin](https://developer.android.com/build) — 构建系统
+- [Google Services Gradle Plugin](https://developers.google.com/android/guides/google-services-plugin) — Firebase 配置
+
+**网络 / HTTP**
+- [OkHttp](https://square.github.io/okhttp/) — HTTP 客户端
+- [Apache HttpClient](https://hc.apache.org/httpcomponents-client-ga/) — 旧版 HTTP 客户端
+- [Java-WebSocket](https://github.com/TooTallNate/Java-WebSocket) — WebSocket 客户端
+- [CloudburstMC Bedrock protocol](https://github.com/CloudburstMC/Network) — 基岩版协议库
+
+**密码学**
+- [Bouncy Castle](https://www.bouncycastle.org/) — Java 加密提供者（bcprov-jdk15on）
+- [Conscrypt](https://github.com/google/conscrypt) — Android TLS 提供者
+- [Spongy Castle](https://github.com/rtyley/spongycastle) — Bouncy Castle 的 Android 重打包版（core、prov、pkix）
+
+**Firebase / Google 服务**
+- [Firebase](https://firebase.google.com/) — Analytics、Crashlytics（含 NDK）、Cloud Messaging、Instance ID
+- [Google Play Services Games v2](https://developers.google.com/games/services/v2/android) — 游戏服务
+- [Google Play Billing](https://developer.android.com/google/play/billing) — 应用内购买
+- [Material Components for Android](https://github.com/material-components/material-components-android)
+
+**UI / 媒体 / 工具**
+- [Coil](https://coil-kt.github.io/coil/) — 图片加载（coil-compose、coil-network-okhttp）
+- [EasyCrop](https://github.com/mr0xf00/easycrop) — 图片裁剪
+- [Reorderable](https://github.com/Calvin-LL/Reorderable) — Compose 拖拽排序
+- [ZXing](https://github.com/zxing/zxing) — 二维码生成
+- [Gson](https://github.com/google/gson) — JSON 序列化
+- [Simple XML](https://simple.sourceforge.net/) — XML 序列化
+- [Guava](https://github.com/google/guava) — 核心工具库
+- [JetBrains Annotations](https://github.com/JetBrains/java-annotations)
+
+**系统 / Shell**
+- [Shizuku](https://github.com/RikkaApps/Shizuku) — 特权 Shell 服务（API + provider）
+- [xCrash](https://github.com/RadiantByte/xCrash) — 原生崩溃捕获
+- [SLF4J](https://www.slf4j.org/) — 日志门面
+
+**Web / 嵌入式引擎**
+- [Mozilla GeckoView](https://mozilla.github.io/geckoview/) — 嵌入式 Web 引擎（arm64-v8a）
+
+**原生（C++）子模块**
+- [preloader-android](https://github.com/wisebreeze/preloader-android) — 原生模组加载子系统
+- [libHttpClient](https://github.com/microsoft/libHttpClient) — 微软 HTTP 客户端（C++）
+- [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — 后端 API 绑定（C++）
+- [nlohmann/json](https://github.com/nlohmann/json) — 现代 C++ JSON 库
+- [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — 经由 libHttpClient
+
 ## 许可证
 
 版权所有 © 2026 wisebreeze。保留所有权利。
