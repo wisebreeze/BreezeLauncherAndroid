@@ -12,7 +12,10 @@
 
 BreezeLauncher 是一款面向 Android 平台 Minecraft 的现代化高性能启动器。它提供流畅的原生体验，用于管理游戏版本、模组、账户和存档——基于 Jetpack Compose UI 与 C++ 原生核心构建，关键逻辑运行在 native 层。
 
-本仓库托管**持续集成**流水线，负责构建并发布已签名的 APK 产物。源代码在独立的私有仓库中开发，从不存放于此。
+> [!IMPORTANT]
+> **免责声明**
+>
+> BreezeLauncher **与 Mojang Studios、Microsoft 或任何其他第三方均无关联、未获认可、也未受其赞助**。本作品**非官方 Minecraft 产品**，也**非任何第三方项目的官方仓库**。Minecraft 是 Mojang Studios 的商标。所有产品名称、徽标和品牌均归其各自所有者所有。
 
 ## 功能特色
 

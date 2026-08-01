@@ -12,7 +12,10 @@
 
 BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. It provides a smooth, native experience for managing game versions, mods, accounts, and worlds — built with a Jetpack Compose UI and a C++ native core for critical operations.
 
-This repository hosts the **continuous integration** pipeline that builds and releases signed APK artifacts. Source code is developed in a separate private repository and is never stored here.
+> [!IMPORTANT]
+> **Disclaimer**
+>
+> BreezeLauncher is **not affiliated with, endorsed by, or sponsored by** Mojang Studios, Microsoft, or any other third party. This is **not an official Minecraft product** and is **not an official repository** of any third-party project. Minecraft is a trademark of Mojang Studios. All product names, logos, and brands are property of their respective owners.
 
 ## Features
 
