@@ -85,7 +85,8 @@ BreezeLauncher 基於以下開源專案構建：
 - [Mozilla GeckoView](https://mozilla.github.io/geckoview/) — 嵌入式 Web 引擎（arm64-v8a）
 
 **原生（C++）子模組**
-- [preloader-android](https://github.com/wisebreeze/preloader-android) — 原生模組載入子系統
+- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — 上游啟動器與預載入器子系統（Apache-2.0），作者 LeviMC Team
+- [preloader-android](https://github.com/wisebreeze/preloader-android) — 原生模組載入子系統（fork 自 LeviLaunchroid）
 - [libHttpClient](https://github.com/microsoft/libHttpClient) — 微軟 HTTP 用戶端（C++）
 - [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — 後端 API 綁定（C++）
 - [nlohmann/json](https://github.com/nlohmann/json) — 現代 C++ JSON 庫

@@ -85,7 +85,8 @@ BreezeLauncher is built on the following open-source projects:
 - [Mozilla GeckoView](https://mozilla.github.io/geckoview/) — embedded web engine (arm64-v8a)
 
 **Native (C++) Submodules**
-- [preloader-android](https://github.com/wisebreeze/preloader-android) — native mod loading subsystem
+- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — upstream launcher & preloader subsystem (Apache-2.0), by LeviMC Team
+- [preloader-android](https://github.com/wisebreeze/preloader-android) — native mod loading subsystem (forked from LeviLaunchroid)
 - [libHttpClient](https://github.com/microsoft/libHttpClient) — Microsoft HTTP client (C++)
 - [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — backend API bindings (C++)
 - [nlohmann/json](https://github.com/nlohmann/json) — JSON for Modern C++
