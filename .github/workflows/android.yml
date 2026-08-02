@@ -9,7 +9,7 @@ name: 'Android CI'
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
 #   preloader -> org.levimc.launcher      (BreezeLauncher-preloader-release.apk)
-#   antutu    -> com.antutu.ABenchMark    (BreezeLauncher-antutu-release.apk)
+#   antutu    -> com.antutu.ABenchMark    (BreezeLauncher-antutu-release.apk)  [DISABLED — no longer building antutu variant]
 # The package switch is done by scripts/switch_package.sh (from the private
 # repo) which also swaps google-services.json to the combined multi-client
 # version so Firebase (FCM/Crashlytics/Analytics) works for all three.
@@ -40,8 +40,8 @@ jobs:
             package: com.wisebreeze.launcher
           - variant: preloader
             package: org.levimc.launcher
-          - variant: antutu
-            package: com.antutu.ABenchMark
+          # - variant: antutu
+          #   package: com.antutu.ABenchMark  # disabled — no longer building antutu variant
     steps:
       - name: Checkout private source repo
         # Clone the private BreezeLauncher repo (full history needed for
