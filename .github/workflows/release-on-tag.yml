@@ -1,15 +1,14 @@
-name: 'Release on tag'
+name: 'Release on publish'
 
-# Triggered when a tag matching `v*` (e.g. v26.7.17) is pushed to this
-# public BreezeLauncherAndroid repo. Produces a versioned release whose
-# body becomes the changelog, then regenerates update.json and mirrors
-# everything to the Gitee configuration repository so the Android app's
-# AppUpdateChecker picks up the new version.
+# Triggered when a GitHub Release is published (user clicks "Publish
+# release" in the GitHub UI). At that point the release body (changelog)
+# is already authored and the tag already exists, so the workflow can
+# safely read the body and attach the APK.
 #
 # Flow:
 #   1. Download BreezeLauncher-default-release.apk from the `artifact`
-#      release on THIS repo and attach it to the new tag's release.
-#   2. Use the tag's release body (Markdown, authored by the maintainer
+#      release on THIS repo and attach it to the newly published release.
+#   2. Use the release body (Markdown, authored by the maintainer
 #      when creating the release) as the changelog. Save it to
 #      update/changeLog/<versionName>.md and commit to main.
 #   3. Compute the APK's MD5 and regenerate update/update.json with the
@@ -30,13 +29,12 @@ name: 'Release on tag'
 #                          push update.json + changelog to Gitee.
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to publish (e.g. v26.7.17). Must already exist.'
+        description: 'Release tag to publish (e.g. v26.7.17). Release must already exist.'
         required: true
         type: string
 
@@ -44,7 +42,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-on-tag
+  group: release-on-publish
   cancel-in-progress: false
 
 env:
@@ -60,11 +58,16 @@ jobs:
     steps:
       - name: Resolve tag
         id: tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           if [ -n "${{ inputs.tag }}" ]; then
             TAG="${{ inputs.tag }}"
+          elif [ -n "$RELEASE_TAG" ]; then
+            TAG="$RELEASE_TAG"
           else
-            TAG="${GITHUB_REF#refs/tags/}"
+            echo "::error::Could not determine release tag (not a release event and no manual tag input)."
+            exit 1
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           # Strip leading 'v' to get versionName (v26.7.17 -> 26.7.17)
