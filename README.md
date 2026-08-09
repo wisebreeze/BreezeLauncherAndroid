@@ -29,13 +29,13 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 
 ## Downloads
 
-Pre-built release APKs are published on the [Releases](https://github.com/wisebreeze/BreezeLauncherAndroid/releases) page. Three variants are available:
+Pre-built release APKs are published on the [Releases](https://github.com/wisebreeze/BreezeLauncherAndroid/releases) page. The `default` variant is currently built; the `preloader` and `antutu` variants are temporarily disabled.
 
 | Variant | Package name | Use case |
 |---------|--------------|----------|
 | `default` | `com.wisebreeze.launcher` | Standard build |
-| `preloader` | `org.levimc.launcher` | LeviLaunchroid-compatible build |
-| `antutu` | `com.antutu.ABenchMark` | Benchmark-disguised build |
+| ~~`preloader`~~ | ~~`org.levimc.launcher`~~ | ~~LeviLaunchroid-compatible build~~ — temporarily disabled |
+| ~~`antutu`~~ | ~~`com.antutu.ABenchMark`~~ | ~~Benchmark-disguised build~~ — disabled |
 
 ## Open Source Acknowledgements
 

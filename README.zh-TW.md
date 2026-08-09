@@ -29,13 +29,13 @@ BreezeLauncher 是一款面向 Android 平台 Minecraft 的現代化高效能啟
 
 ## 下載
 
-預構建的發布版 APK 發布在 [Releases](https://github.com/wisebreeze/BreezeLauncherAndroid/releases) 頁面，提供三個變體：
+預構建的發布版 APK 發布在 [Releases](https://github.com/wisebreeze/BreezeLauncherAndroid/releases) 頁面。目前構建 `default` 變體；`preloader` 與 `antutu` 變體暫時停用。
 
 | 變體 | 套件名 | 用途 |
 |------|--------|------|
 | `default` | `com.wisebreeze.launcher` | 標準構建 |
-| `preloader` | `org.levimc.launcher` | LeviLaunchroid 相容構建 |
-| `antutu` | `com.antutu.ABenchMark` | 偽裝跑分類構建 |
+| ~~`preloader`~~ | ~~`org.levimc.launcher`~~ | ~~LeviLaunchroid 相容構建~~ — 暫時停用 |
+| ~~`antutu`~~ | ~~`com.antutu.ABenchMark`~~ | ~~偽裝跑分類構建~~ — 已停用 |
 
 ## 開源程式碼致謝
 
