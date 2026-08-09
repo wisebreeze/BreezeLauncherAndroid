@@ -1,0 +1,9 @@
+{
+  "version": "26.7.17",
+  "versionCode": 260717,
+  "forceUpdate": false,
+  "forceUpdateBelowVersionCode": 260700,
+  "download": "https://github.com/wisebreeze/BreezeLauncher/releases/download/artifact/BreezeLauncher-release.apk",
+  "md5": "",
+  "changeLog": "https://gitee.com/wisebreeze/BreezeLauncherApp/raw/main/changeLog/26.7.17.md"
+}
