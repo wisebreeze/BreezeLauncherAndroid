@@ -4,7 +4,7 @@ This directory holds the app-update manifest (`update.json`) and per-version
 changelogs (`changeLog/<versionName>.md`) that are mirrored to the Gitee
 configuration repository
 [`wisebreeze/BreezeLauncherApp`](https://gitee.com/wisebreeze/BreezeLauncherApp)
-by the `sync-update-to-gitee.yml` workflow.
+by the `release-on-tag.yml` workflow when a release is published.
 
 The Android app fetches `update.json` from Gitee at launch (once per day) via
 `AppUpdateChecker` and renders the changelog Markdown inside `UpdateDialog`.
@@ -63,10 +63,10 @@ Force-update every client older than `260700` to `26.7.17`:
 
 ## Workflow
 
-`.github/workflows/sync-update-to-gitee.yml` mirrors the contents of this
-directory to the root of the Gitee `BreezeLauncherApp` repository whenever a
-push to `main` touches `update/**`. It can also be triggered manually from the
-Actions tab.
+`.github/workflows/release-on-tag.yml` mirrors the contents of this
+directory to the root of the Gitee `BreezeLauncherApp` repository when a
+release is published. It can also be triggered manually from the Actions
+tab with an existing release tag.
 
 The workflow requires the `GITEE_TOKEN` repository secret to be set to a Gitee
 personal access token with `projects` push scope.

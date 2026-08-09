@@ -190,9 +190,9 @@ Both fields are preserved across releases (the workflow copies them
 from the previous `update.json`), so you only need to set them once
 per force-update campaign and clear them when no longer needed.
 
-Commit the change and push to `main`. The
-`sync-update-to-gitee.yml` workflow mirrors it to Gitee automatically
-on the next push that touches `update/**`.
+Commit the change and push to `main`, then manually trigger the
+`Release on publish` workflow (workflow_dispatch) with the current
+release tag to re-sync `update.json` to Gitee.
 
 ## Common mistakes to avoid
 
