@@ -53,6 +53,11 @@ env:
 
 jobs:
   release:
+    # Skip the `artifact` release — it is a rolling release maintained by
+    # the Android CI workflow (latest build APK), not a versioned release.
+    # Publishing it would otherwise trigger this workflow and fail when
+    # trying to derive a versionCode from "artifact".
+    if: github.event.release.tag_name != 'artifact'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
