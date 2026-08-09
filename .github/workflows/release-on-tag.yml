@@ -1,0 +1,293 @@
+name: 'Release on tag'
+
+# Triggered when a tag matching `v*` (e.g. v26.7.17) is pushed to this
+# public BreezeLauncherAndroid repo. Produces a versioned release whose
+# body becomes the changelog, then regenerates update.json and mirrors
+# everything to the Gitee configuration repository so the Android app's
+# AppUpdateChecker picks up the new version.
+#
+# Flow:
+#   1. Download BreezeLauncher-default-release.apk from the `artifact`
+#      release on THIS repo and attach it to the new tag's release.
+#   2. Use the tag's release body (Markdown, authored by the maintainer
+#      when creating the release) as the changelog. Save it to
+#      update/changeLog/<versionName>.md and commit to main.
+#   3. Compute the APK's MD5 and regenerate update/update.json with the
+#      new version / versionCode / md5 / download URL / changelog URL.
+#      Commit to main.
+#   4. Mirror update/ to the Gitee BreezeLauncherApp repo (update.json +
+#      changeLog/*.md), exactly like sync-update-to-gitee.yml does on
+#      regular pushes.
+#
+# Tag naming convention: v<versionName>, e.g. v26.7.17. The leading `v`
+# is stripped to obtain the versionName. versionCode is derived from the
+# versionName by the same scheme the Gradle build uses:
+#   <yearPart><MM><DD>  (yearPart = year - 2000 for 2000-2099)
+# e.g. 26.7.17 -> 260717, 3010.6.1 -> 30100601
+#
+# Required secrets:
+#   GITEE_TOKEN          - Gitee PAT with `projects` push scope, used to
+#                          push update.json + changelog to Gitee.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v26.7.17). Must already exist.'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-on-tag
+  cancel-in-progress: false
+
+env:
+  GITEE_REPO: wisebreeze/BreezeLauncherApp
+  GITEE_BRANCH: main
+  APK_ASSET_NAME: BreezeLauncher-default-release.apk
+  ARTIFACT_RELEASE_TAG: artifact
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # Strip leading 'v' to get versionName (v26.7.17 -> 26.7.17)
+          VERSION_NAME="${TAG#v}"
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Derive versionCode from versionName using the Gradle scheme:
+          #   <yearPart><MM><DD>  (yearPart = year - 2000 for 2000-2099)
+          # e.g. 26.7.17 -> 260717, 3010.6.1 -> 30100601
+          YEAR=$(echo "$VERSION_NAME" | cut -d. -f1)
+          MONTH=$(echo "$VERSION_NAME" | cut -d. -f2)
+          DAY=$(echo "$VERSION_NAME" | cut -d. -f3)
+          if [ -z "$DAY" ]; then
+            echo "::error::versionName '$VERSION_NAME' must be <year>.<month>.<day>"
+            exit 1
+          fi
+          if [ "$YEAR" -ge 0 ] && [ "$YEAR" -le 99 ]; then
+            YEAR=$((2000 + YEAR))
+          fi
+          VERSION_CODE=$(printf '%d%02d%02d' "$YEAR" "$MONTH" "$DAY")
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "Resolved tag=$TAG versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "wisebreeze"
+          git config user.email "wisebreeze@users.noreply.github.com"
+
+      - name: Fetch release body (changelog)
+        id: release_body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Read the release body. If the release was created without a
+          # body, fall back to the tag's annotation message.
+          BODY=$(gh release view "$TAG" --repo "${{ github.repository }}" --json body -q .body 2>/dev/null || true)
+          if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
+            BODY=$(git tag -l --format='%(contents:body)' "$TAG")
+          fi
+          if [ -z "$BODY" ]; then
+            echo "::error::No release body found for tag $TAG. Create the release with changelog content as the body."
+            exit 1
+          fi
+          # Persist to a temp file to preserve newlines and avoid shell
+          # quoting issues when re-using it later.
+          printf '%s' "$BODY" > /tmp/changelog.md
+          echo "Changelog length: $(wc -c < /tmp/changelog.md) bytes"
+          echo "has_body=true" >> $GITHUB_OUTPUT
+
+      - name: Download APK from artifact release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/apk
+          gh release download "${{ env.ARTIFACT_RELEASE_TAG }}" \
+            --repo "${{ github.repository }}" \
+            --pattern "${{ env.APK_ASSET_NAME }}" \
+            --dir /tmp/apk
+          ls -la /tmp/apk/
+          test -f "/tmp/apk/${{ env.APK_ASSET_NAME }}"
+
+      - name: Attach APK to the tag's release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          # Clobber any previously uploaded asset with the same name.
+          gh release delete-asset "$TAG" "${{ env.APK_ASSET_NAME }}" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+          gh release upload "$TAG" "/tmp/apk/${{ env.APK_ASSET_NAME }}" \
+            --repo "${{ github.repository }}" --clobber
+          echo "Attached ${{ env.APK_ASSET_NAME }} to release $TAG"
+
+      - name: Compute APK MD5
+        id: md5
+        run: |
+          MD5=$(md5sum "/tmp/apk/${{ env.APK_ASSET_NAME }}" | cut -d' ' -f1)
+          echo "md5=$MD5" >> $GITHUB_OUTPUT
+          echo "APK MD5: $MD5"
+
+      - name: Write changelog file
+        run: |
+          mkdir -p update/changeLog
+          cp /tmp/changelog.md "update/changeLog/${{ steps.tag.outputs.version_name }}.md"
+          echo "Wrote update/changeLog/${{ steps.tag.outputs.version_name }}.md"
+
+      - name: Regenerate update.json
+        run: |
+          VERSION="${{ steps.tag.outputs.version_name }}"
+          VERSION_CODE="${{ steps.tag.outputs.version_code }}"
+          MD5="${{ steps.md5.outputs.md5 }}"
+          # Canonical download URL points to THIS repo's release asset.
+          # The app may rewrite it to a mirror prefix at download time
+          # when the user has enabled GitHub mirror acceleration.
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${{ env.APK_ASSET_NAME }}"
+          CHANGELOG_URL="https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${VERSION}.md"
+
+          # Preserve forceUpdate / forceUpdateBelowVersionCode from the
+          # existing update.json if present (so a release does not
+          # silently clear a force-update floor). Default to false / 0.
+          FORCE_UPDATE="false"
+          FORCE_BELOW="0"
+          if [ -f update/update.json ]; then
+            FORCE_UPDATE=$(python3 -c "import json;print(str(json.load(open('update/update.json')).get('forceUpdate', False)).lower())" 2>/dev/null || echo "false")
+            FORCE_BELOW=$(python3 -c "import json;print(json.load(open('update/update.json')).get('forceUpdateBelowVersionCode', 0))" 2>/dev/null || echo "0")
+          fi
+
+          cat > update/update.json <<EOF
+          {
+            "version": "$VERSION",
+            "versionCode": $VERSION_CODE,
+            "forceUpdate": $FORCE_UPDATE,
+            "forceUpdateBelowVersionCode": $FORCE_BELOW,
+            "download": "$DOWNLOAD_URL",
+            "md5": "$MD5",
+            "changeLog": "$CHANGELOG_URL"
+          }
+          EOF
+          echo "--- update.json ---"
+          cat update/update.json
+          # Validate JSON syntax before committing.
+          python3 -c "import json;json.load(open('update/update.json'))"
+
+      - name: Commit update manifest to main
+        run: |
+          git add update/update.json "update/changeLog/${{ steps.tag.outputs.version_name }}.md"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(update): bump manifest to ${{ steps.tag.outputs.version_name }}
+
+          - Attach ${{ env.APK_ASSET_NAME }} to release v${{ steps.tag.outputs.version_name }}
+          - Update changeLog/${{ steps.tag.outputs.version_name }}.md from release body
+          - Regenerate update.json (versionCode=${{ steps.tag.outputs.version_code }}, md5=${{ steps.md5.outputs.md5 }})"
+          git push origin main
+          echo "Pushed manifest to main"
+
+      - name: Setup Python for Gitee push
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Validate manifest before Gitee sync
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          with open('update/update.json') as f:
+              d = json.load(f)
+          for k in ('version', 'versionCode', 'download', 'changeLog'):
+              if not d.get(k):
+                  print(f'::error::update.json missing required field {k}')
+                  sys.exit(1)
+          cl = f"update/changeLog/{d['version']}.md"
+          import os
+          if not os.path.isfile(cl):
+              print(f'::error::changelog file {cl} not found')
+              sys.exit(1)
+          print('Manifest OK:', d)
+          PY
+
+      - name: Mirror update/ to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::error::GITEE_TOKEN secret is not set. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          GITEE_WORKDIR="$RUNNER_TEMP/gitee-work"
+          mkdir -p "$GITEE_WORKDIR"
+          cd "$GITEE_WORKDIR"
+          git clone --depth 1 --branch "${{ env.GITEE_BRANCH }}" \
+            "https://wisebreeze:${GITEE_TOKEN}@gitee.com/${{ env.GITEE_REPO }}.git" .
+          git config user.name "wisebreeze"
+          git config user.email "12232263+wisebreeze@user.noreply.gitee.com"
+
+          # Mirror update/ contents onto the Gitee repo root.
+          # - update/update.json      -> update.json
+          # - update/changeLog/*.md   -> changeLog/*.md
+          # rsync with --delete so removed changelog files propagate.
+          rsync -a --delete \
+            --include='update.json' \
+            --include='changeLog/' \
+            --include='changeLog/*.md' \
+            --exclude='*' \
+            "$GITHUB_WORKSPACE/update/" "$GITEE_WORKDIR/"
+
+          # The changeLog/README.md in this repo is documentation only
+          # and must not appear on Gitee (the app would try to render it
+          # as a changelog if update.json ever pointed at it).
+          rm -f "$GITEE_WORKDIR/changeLog/README.md"
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to push to Gitee."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "chore: sync update manifest for v${{ steps.tag.outputs.version_name }}
+
+          Source: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.tag.outputs.version_name }}
+          versionCode: ${{ steps.tag.outputs.version_code }}
+          md5: ${{ steps.md5.outputs.md5 }}"
+
+          git push origin "${{ env.GITEE_BRANCH }}"
+          echo "Pushed to Gitee: https://gitee.com/${{ env.GITEE_REPO }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Release ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- versionName: \`${{ steps.tag.outputs.version_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- versionCode: \`${{ steps.tag.outputs.version_code }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- APK MD5: \`${{ steps.md5.outputs.md5 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Gitee manifest: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/update.json" >> $GITHUB_STEP_SUMMARY
+          echo "- Gitee changelog: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${{ steps.tag.outputs.version_name }}.md" >> $GITHUB_STEP_SUMMARY
