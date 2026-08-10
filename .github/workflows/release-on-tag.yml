@@ -214,7 +214,10 @@ jobs:
           - Attach ${{ env.APK_ASSET_NAME }} to release v${{ steps.tag.outputs.version_name }}
           - Update changeLog/${{ steps.tag.outputs.version_name }}.md from release body
           - Regenerate update.json (versionCode=${{ steps.tag.outputs.version_code }}, md5=${{ steps.md5.outputs.md5 }})"
-          git push origin main
+          # Checkout is at the tag (detached HEAD) for release events, so
+          # there is no local `main` branch to push. Push the current HEAD
+          # to the remote `main` ref directly.
+          git push origin HEAD:main
           echo "Pushed manifest to main"
 
       - name: Setup Python for Gitee push
