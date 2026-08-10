@@ -227,15 +227,14 @@ jobs:
           gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ github.repository }}
           echo "Uploaded $APK_FILE to artifact release on ${{ github.repository }}"
 
-      - name: Notify Discord (changelog + APK)
-        # Publishes the build to the CubeVisage Discord server's app channel.
+      - name: Notify Discord (English changelog)
+        # Posts the English changelog (git log) to the CubeVisage Discord
+        # server's app channel. Text only — no APK attachment, no emoji.
         # Only fires for the default variant to avoid duplicate messages
         # when multiple variants are built in parallel.
         if: matrix.variant == 'default'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_APP_WEBHOOK }}
-          APK_FILE: ${{ steps.apk_name.outputs.final_name }}
-          ARTIFACT_RELEASE_TAG: ${{ env.ARTIFACT_RELEASE_TAG }}
         run: python3 .github/scripts/notify_discord.py
 
       - name: Cleanup stale build caches
