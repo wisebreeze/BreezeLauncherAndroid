@@ -96,7 +96,7 @@ jobs:
           echo "Resolved tag=$TAG versionName=$VERSION_NAME versionCode=$VERSION_CODE"
 
       - name: Checkout this repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
