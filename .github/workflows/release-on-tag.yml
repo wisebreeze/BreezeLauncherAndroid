@@ -300,6 +300,7 @@ jobs:
           VERSION_NAME: ${{ steps.tag.outputs.version_name }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }}
+          APK_DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.tag }}/${{ env.APK_ASSET_NAME }}
         run: python3 .github/scripts/notify_discord.py
 
       - name: Summary

@@ -60,6 +60,12 @@ def main() -> int:
         return 1
 
     english = extract_english(body)
+
+    # Append a markdown download link for the APK at the bottom.
+    apk_url = os.environ.get("APK_DOWNLOAD_URL", "").strip()
+    if apk_url:
+        english = english.rstrip() + "\n\n**Download APK**: [BreezeLauncher-default-release.apk](" + apk_url + ")"
+
     # Discord embed description limit: 4096 chars
     if len(english) > 4090:
         english = english[:4087] + "..."
