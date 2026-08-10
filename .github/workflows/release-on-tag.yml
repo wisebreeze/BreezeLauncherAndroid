@@ -291,6 +291,17 @@ jobs:
           git push origin "${{ env.GITEE_BRANCH }}"
           echo "Pushed to Gitee: https://gitee.com/${{ env.GITEE_REPO }}"
 
+      - name: Notify Discord (English changelog)
+        # Posts the English section of the release body to the CubeVisage
+        # Discord server's app channel as a markdown embed.
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_APP_WEBHOOK }}
+          CHANGELOG_FILE: /tmp/changelog.md
+          VERSION_NAME: ${{ steps.tag.outputs.version_name }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }}
+        run: python3 .github/scripts/notify_discord.py
+
       - name: Summary
         if: always()
         run: |

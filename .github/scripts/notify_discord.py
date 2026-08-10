@@ -1,49 +1,45 @@
 #!/usr/bin/env python3
-"""Post the English changelog to Discord (text only, no APK, no emoji).
+"""Post the English changelog to Discord when a release is published.
 
-Env vars (passed from the workflow):
-  DISCORD_WEBHOOK          Discord webhook URL (from repo secret)
-  GITHUB_REPOSITORY        owner/repo (auto-set by Actions)
-  GITHUB_EVENT_NAME        "push" | "workflow_dispatch" (auto-set)
-  GITHUB_BEFORE            previous SHA on push (auto-set)
-  GITHUB_SHA               current SHA (auto-set)
+Reads the release body (bilingual markdown) from CHANGELOG_FILE,
+extracts the English section, and posts it as a Discord embed
+(markdown-supported, 4096-char description limit).
 
-The changelog is generated from git log (English conventional-commit
-messages). No APK attachment, no emoji — just the version header and
-the commit list as a plain-text Discord message.
+Env vars:
+  DISCORD_WEBHOOK   Discord webhook URL (from repo secret)
+  CHANGELOG_FILE    Path to the release body markdown (default /tmp/changelog.md)
+  VERSION_NAME      Version name (e.g. 26.8.10)
+  RELEASE_TAG       Release tag (e.g. v26.8.10)
+  RELEASE_URL       GitHub release URL
+
+The User-Agent header is set to avoid Cloudflare 403 (code 1010) blocks
+on the default Python-urllib UA.
 """
 import json
 import os
-import subprocess
+import re
 import sys
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
 
 
-def build_changelog() -> str:
-    event = os.environ.get("GITHUB_EVENT_NAME", "")
-    before = os.environ.get("GITHUB_BEFORE", "")
-    sha = os.environ.get("GITHUB_SHA", "")
-    if event == "push" and before and before != "0" * 40:
-        rng = f"{before}..{sha}"
-    else:
-        rng = "HEAD~15..HEAD"
-    try:
-        res = subprocess.run(
-            ["git", "log", "--pretty=format:- %s", "--no-merges", rng],
-            capture_output=True, text=True, timeout=10,
-        )
-        log = res.stdout.strip()
-    except Exception:
-        log = ""
-    if not log:
-        log = "- (no changelog available)"
-    lines = log.split("\n")[:30]
-    text = "\n".join(lines)
-    if len(text) > 1800:
-        text = text[:1797] + "..."
-    return text
+def extract_english(body: str) -> str:
+    """Extract the English section from the bilingual changelog.
+
+    Body format:
+        # <version>
+        ## English
+        ...english content...
+        ---
+        ## 简体中文
+        ...
+    Returns the english content (without the ## English header).
+    Falls back to the full body (minus the top heading) if no marker.
+    """
+    m = re.search(r'## English\s*\n(.*?)(?:\n---\s*\n|\Z)', body, re.DOTALL)
+    if m:
+        return m.group(1).strip()
+    return re.sub(r'^# .+\n*', '', body).strip()
 
 
 def main() -> int:
@@ -52,19 +48,43 @@ def main() -> int:
         print("::warning::DISCORD_APP_WEBHOOK secret not set; skipping Discord notification")
         return 0
 
-    # Version — matches build.gradle.kts date-based scheme (UTC build date)
-    now = datetime.now(timezone.utc)
-    year_part = now.year - 2000 if 2000 <= now.year <= 2099 else now.year
-    version = f"{year_part}.{now.month}.{now.day}"
+    changelog_file = os.environ.get("CHANGELOG_FILE", "/tmp/changelog.md")
+    version = os.environ.get("VERSION_NAME", "")
+    release_url = os.environ.get("RELEASE_URL", "")
 
-    changelog = build_changelog()
+    try:
+        with open(changelog_file, encoding="utf-8") as f:
+            body = f.read()
+    except FileNotFoundError:
+        print(f"::error::Changelog file not found: {changelog_file}")
+        return 1
 
-    content = f"BreezeLauncher {version}\n\nChangelog:\n{changelog}"
+    english = extract_english(body)
+    # Discord embed description limit: 4096 chars
+    if len(english) > 4090:
+        english = english[:4087] + "..."
 
-    body = json.dumps({"content": content}).encode()
-    headers = {"Content-Type": "application/json"}
+    embed = {
+        "title": f"BreezeLauncher {version}" if version else "BreezeLauncher",
+        "description": english,
+        "color": 3447003,  # sky blue (#1ABC9C-ish)
+    }
+    if release_url:
+        embed["url"] = release_url
 
-    req = urllib.request.Request(webhook, data=body, headers=headers, method="POST")
+    payload = {"embeds": [embed]}
+    data = json.dumps(payload).encode()
+
+    req = urllib.request.Request(
+        webhook,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "BreezeLauncher-CI/1.0",
+        },
+        method="POST",
+    )
+
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
             resp_text = resp.read().decode(errors="replace")[:300]
