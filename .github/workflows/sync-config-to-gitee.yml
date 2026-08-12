@@ -1,12 +1,12 @@
-name: 'Sync mods.json to Gitee'
+name: 'Sync config to Gitee'
 
-# Mirrors config/mods.json from this public BreezeLauncherAndroid repo
-# to the Gitee BreezeLauncherApp repo (root-level mods.json), so the
-# app can keep fetching it from Gitee's raw endpoint while the source
-# of truth lives in this repo.
+# Mirrors config files (mods.json, announcements.json) from this public
+# BreezeLauncherAndroid repo to the Gitee BreezeLauncherApp repo (root-level),
+# so the app can keep fetching them from Gitee's raw endpoint while the
+# source of truth lives in this repo.
 #
 # Triggers:
-#   - Any push to main that touches config/mods.json
+#   - Any push to main that touches config/mods.json or config/announcements.json
 #   - Manual dispatch
 #
 # Required secrets:
@@ -17,14 +17,15 @@ on:
     branches: [main]
     paths:
       - 'config/mods.json'
-      - '.github/workflows/sync-mods-to-gitee.yml'
+      - 'config/announcements.json'
+      - '.github/workflows/sync-config-to-gitee.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: sync-mods-to-gitee
+  group: sync-config-to-gitee
   cancel-in-progress: false
 
 env:
@@ -40,10 +41,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate mods.json
+      - name: Validate config files
         run: |
           python3 - <<'PY'
           import json, sys
+
+          # --- mods.json ---
           with open('config/mods.json') as f:
               d = json.load(f)
           arr = d.get('android_mods')
@@ -56,9 +59,23 @@ jobs:
                       print(f'::error::android_mods[{i}] missing field {k}')
                       sys.exit(1)
           print('mods.json OK:', len(arr), 'entries')
+
+          # --- announcements.json ---
+          with open('config/announcements.json') as f:
+              d = json.load(f)
+          arr = d.get('announcements')
+          if not isinstance(arr, list):
+              print('::error::announcements.json missing announcements array')
+              sys.exit(1)
+          for i, a in enumerate(arr):
+              for k in ('published_at', 'content_zh', 'content_en'):
+                  if not a.get(k):
+                      print(f'::error::announcements[{i}] missing field {k}')
+                      sys.exit(1)
+          print('announcements.json OK:', len(arr), 'entries')
           PY
 
-      - name: Mirror mods.json to Gitee
+      - name: Mirror config files to Gitee
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
@@ -76,6 +93,7 @@ jobs:
           git config user.email "12232263+wisebreeze@user.noreply.gitee.com"
 
           cp "$GITHUB_WORKSPACE/config/mods.json" "$GITEE_WORKDIR/mods.json"
+          cp "$GITHUB_WORKSPACE/config/announcements.json" "$GITEE_WORKDIR/announcements.json"
 
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to push to Gitee."
@@ -83,9 +101,10 @@ jobs:
           fi
 
           git add -A
-          git commit -m "chore: sync mods.json from BreezeLauncherAndroid
+          git commit -m "chore: sync config from BreezeLauncherAndroid
 
           Source: https://github.com/wisebreeze/BreezeLauncherAndroid/commit/${{ github.sha }}"
 
           git push origin "${{ env.GITEE_BRANCH }}"
           echo "Pushed to Gitee: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/mods.json"
+          echo "Pushed to Gitee: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/announcements.json"

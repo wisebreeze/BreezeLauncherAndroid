@@ -1,0 +1,9 @@
+{
+  "announcements": [
+    {
+      "published_at": "2026-08-12 10:00",
+      "content_zh": "## 欢迎使用 BreezeLauncher\n\n这是第一条公告。此处用于发布重要通知、活动与版本动态。\n\n- 公告以发布时间作为标题\n- 内容支持 Markdown 渲染\n- 中文环境显示中文，英文环境显示英文",
+      "content_en": "## Welcome to BreezeLauncher\n\nThis is the first announcement. Important notices, events and release updates will be posted here.\n\n- Each announcement is titled by its publish time\n- Content is rendered as Markdown\n- Chinese locale shows Chinese, English locale shows English"
+    }
+  ]
+}
