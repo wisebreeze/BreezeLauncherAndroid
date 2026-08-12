@@ -1,0 +1,112 @@
+{
+  "android_mods": [
+    {
+      "name": "ForceCloseOreUI",
+      "author": "QYCottage",
+      "license": "Unknown",
+      "link": "https://github.com/QYCottage/ForceCloseOreUI"
+    },
+    {
+      "name": "mtbinloader2",
+      "author": "mcbegamerxx954",
+      "license": "MIT",
+      "link": "https://github.com/mcbegamerxx954/mtbinloader2"
+    },
+    {
+      "name": "draco",
+      "author": "mcbegamerxx954",
+      "license": "Unknown",
+      "link": "https://github.com/mcbegamerxx954/mcbe_shader_redirector"
+    },
+    {
+      "name": "BuildLimitChanger",
+      "author": "Zeuroux",
+      "license": "MIT",
+      "link": "https://github.com/Zeuroux/BuildLimitChanger"
+    },
+    {
+      "name": "BetterResourcePackManager",
+      "author": "QYCottage",
+      "license": "Unknown",
+      "link": "https://github.com/QYCottage/BetterResourcePackManager-Release"
+    },
+    {
+      "name": "LimitlessGlint",
+      "author": "TANGY009",
+      "description": "A fun mod that allows you to put any enchantments on any enchantable item.",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/TANGY009/LimitlessGlint"
+    },
+    {
+      "name": "Better-Brightness",
+      "author": "OpenMCBE",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/OpenMCBE/Better-Brightness"
+    },
+    {
+      "name": "EnchantUnbound",
+      "author": "TANGY009",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/TANGY009/EnchantUnbound"
+    },
+    {
+      "name": "MotionBlur",
+      "author": "mrover2503-del",
+      "description": "We offer a motion blur menu!",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/mrover2503-del/MotionBlur"
+    },
+    {
+      "name": "ShulkerBoxPreview",
+      "author": "OpenMCBE",
+      "description": "A mod that adds shulker box content previews (Android).",
+      "license": "Unknown",
+      "link": "https://github.com/OpenMCBE/ShulkerBoxPreview"
+    },
+    {
+      "name": "AdvancedTooltips",
+      "author": "ModCube",
+      "description": "client-side mod for LeviLaunchroid that enhances the Minecraft inventory experience with additional quality-of-life features and improved tooltips.",
+      "license": "CPNC-1.0",
+      "link": "https://github.com/ModCube/AdvancedTooltips-Releases"
+    },
+    {
+      "name": "NoDisconnect",
+      "author": "RadiantByte",
+      "description": "A mod that prevents you from being disconnected from multiplayer servers when you minimize the app.",
+      "license": "Unknown",
+      "link": "https://github.com/RadiantByte/NoDisconnect-Releases"
+    },
+    {
+      "name": "Custom Crosshair",
+      "author": "MCPEOVER",
+      "description": "A customizable crosshair mod for Minecraft Bedrock (Android).",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/MCPEOVER/LeviLauncher-Display"
+    },
+    {
+      "name": "Third Person Nametag",
+      "author": "OpenMCBE",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/OpenMCBE/Third-Person-Nametag"
+    },
+    {
+      "name": "INEB",
+      "author": "DeletedORGArchiverjdjjd",
+      "license": "LGPL-3.0",
+      "link": "https://github.com/DeletedORGArchiverjdjjd/LeviLauncher-INEB-Release"
+    },
+    {
+      "name": "FirstPersonModel",
+      "author": "DeletedORGArchiverjdjjd",
+      "license": "MIT",
+      "link": "https://github.com/DeletedORGArchiverjdjjd/LeviLauncher-FirstPersonModel"
+    },
+    {
+      "name": "NoHurtCam",
+      "author": "nexcaise",
+      "license": "EPL-2.0",
+      "link": "https://github.com/nexcaise/LeviLauncher-NoHurtCam"
+    }
+  ]
+}
