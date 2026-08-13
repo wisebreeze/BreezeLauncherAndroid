@@ -119,9 +119,15 @@ jobs:
           # Also key on the private repo's HEAD SHA (not github.sha which
           # is this public repo's workflow commit SHA — it would be stale
           # across builds of different private source).
-          key: build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ steps.private_sha.outputs.sha }}
+          #
+          # Also key on the C/C++ source hash so a native change bumps
+          # the cache key — without this, a C++ edit would restore a
+          # stale app/build and CMake would still recompile correctly
+          # (incremental), but if app/build was evicted the CMake cache
+          # (.cxx) would be gone and force a full native rebuild.
+          key: build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-${{ steps.private_sha.outputs.sha }}
           restore-keys: |
-            build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
+            build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-
 
       - name: Setup Android NDK Environment
         run: |
