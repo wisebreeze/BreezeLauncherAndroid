@@ -3,8 +3,10 @@ name: 'Android CI'
 # This workflow lives in the public BreezeLauncherAndroid repo purely to
 # consume GitHub Actions free minutes (2000/min/month for private repos).
 # Source code is cloned from the private BreezeLauncher repo at build time,
-# and the signed APK is uploaded to a release on the PRIVATE repo. Neither
-# source code nor release artifacts ever live in this public repo.
+# and the signed APK is uploaded to the `artifact` release on THIS public
+# repo. Neither source code nor release artifacts ever live in the private
+# repo — the private repo's `artifact` release is used only for build
+# caches (submodules/gradle), not the APK.
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -176,33 +178,10 @@ jobs:
           rm -f "$APK_IN"
           rm -f keystore.jks
 
-      - name: Ensure artifact release exists (on private repo)
-        # Releases are created on the PRIVATE repo, not this public one.
-        # PAT must have Contents: Write on BreezeLauncher.
-        # `|| true` tolerates the race when parallel variant jobs all try
-        # to create the same release simultaneously.
-        env:
-          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: |
-          gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
-            --repo ${{ env.PRIVATE_REPO }} \
-            --title "Artifact Storage" \
-            --notes "Temporary storage for build artifacts. Do not delete." \
-            --draft=false --prerelease=false 2>/dev/null || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ env.PRIVATE_REPO }} >/dev/null
-
       - name: Verify APK signature
         run: |
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
           java -jar $BUILD_TOOLS/lib/apksigner.jar verify --print-certs "${{ steps.apk_name.outputs.final_name }}"
-
-      - name: Upload APK to artifact release (on private repo)
-        env:
-          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: |
-          APK_FILE="${{ steps.apk_name.outputs.final_name }}"
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo ${{ env.PRIVATE_REPO }} 2>/dev/null || true
-          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ env.PRIVATE_REPO }}
-          echo "Uploaded $APK_FILE to artifact release on ${{ env.PRIVATE_REPO }}"
 
       - name: Ensure artifact release exists (on public repo)
         # Also publish the APK on THIS public repo so external users
