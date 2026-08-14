@@ -17,6 +17,9 @@ name: 'Release on publish'
 #   4. Mirror update/ to the Gitee BreezeLauncherApp repo (update.json +
 #      changeLog/*.md), exactly like sync-update-to-gitee.yml does on
 #      regular pushes.
+#   5. Create (or update) a Gitee release for the same tag and upload
+#      the APK as an attachment, so the Gitee mirror has a 1:1 copy of
+#      the GitHub release including the APK asset.
 #
 # Tag naming convention: v<versionName>, e.g. v26.7.17. The leading `v`
 # is stripped to obtain the versionName. versionCode is derived from the
@@ -291,6 +294,79 @@ jobs:
           git push origin "${{ env.GITEE_BRANCH }}"
           echo "Pushed to Gitee: https://gitee.com/${{ env.GITEE_REPO }}"
 
+      - name: Mirror release to Gitee
+        # Create (or update) a Gitee release for the same tag and upload
+        # the APK as an attachment. Mirrors the GitHub release 1:1 so
+        # users on the Gitee mirror can download the APK without leaving
+        # Gitee. Idempotent: re-running on the same tag updates the
+        # attachment instead of erroring out.
+        id: gitee_release
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::error::GITEE_TOKEN secret is not set. Add it in repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          TAG="${{ steps.tag.outputs.tag }}"
+          APK_PATH="/tmp/apk/${{ env.APK_ASSET_NAME }}"
+          GITEE_API="https://gitee.com/api/v5/repos/${{ env.GITEE_REPO }}"
+
+          # 1. Try to fetch an existing release by tag.
+          RELEASE_ID=$(curl -fsSL -X GET \
+            "${GITEE_API}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}" 2>/dev/null \
+            | jq -r '.id // empty' 2>/dev/null || echo "")
+
+          # 2. If not found, create a new release using the same body
+          #    (changelog) as the GitHub release. Gitee auto-creates the
+          #    tag from target_commitish if it does not exist yet.
+          if [ -z "$RELEASE_ID" ]; then
+            echo "Creating Gitee release for tag $TAG..."
+            CREATE_RESP=$(curl -fsSL -X POST "${GITEE_API}/releases" \
+              -d "access_token=${GITEE_TOKEN}" \
+              -d "tag_name=${TAG}" \
+              -d "name=${TAG}" \
+              --data-urlencode "body@/tmp/changelog.md" \
+              -d "target_commitish=${{ env.GITEE_BRANCH }}")
+            RELEASE_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
+            if [ -z "$RELEASE_ID" ]; then
+              echo "::error::Failed to create Gitee release. Response: $CREATE_RESP"
+              exit 1
+            fi
+            echo "Created Gitee release ID: $RELEASE_ID"
+          else
+            echo "Found existing Gitee release ID: $RELEASE_ID"
+          fi
+
+          # 3. Delete any existing attachment with the same name so the
+          #    upload below does not produce a duplicate.
+          EXISTING_ATTACH_ID=$(curl -fsSL -X GET \
+            "${GITEE_API}/releases/${RELEASE_ID}?access_token=${GITEE_TOKEN}" \
+            | jq -r --arg name "${{ env.APK_ASSET_NAME }}" \
+              '.attach_files[]? | select(.name == $name) | .id' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING_ATTACH_ID" ]; then
+            echo "Deleting existing APK attachment (id=$EXISTING_ATTACH_ID)..."
+            curl -fsSL -X DELETE \
+              "${GITEE_API}/releases/${RELEASE_ID}/attach_files/${EXISTING_ATTACH_ID}?access_token=${GITEE_TOKEN}" \
+              || echo "WARN: failed to delete existing attachment, will try to upload anyway"
+          fi
+
+          # 4. Upload the APK as a release attachment.
+          echo "Uploading APK to Gitee release $RELEASE_ID..."
+          UPLOAD_RESP=$(curl -fsSL -X POST \
+            "${GITEE_API}/releases/${RELEASE_ID}/attach_files" \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${APK_PATH}")
+          echo "Upload response: $UPLOAD_RESP"
+
+          GITEE_ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.browser_download_url // .url // empty')
+          echo "Gitee asset URL: $GITEE_ASSET_URL"
+
+          echo "gitee_release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+          echo "gitee_asset_url=$GITEE_ASSET_URL" >> "$GITHUB_OUTPUT"
+
       - name: Notify Discord (English changelog)
         # Posts the English section of the release body to the CubeVisage
         # Discord server's app channel as a markdown embed.
@@ -314,3 +390,4 @@ jobs:
           echo "- Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- Gitee manifest: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/update.json" >> $GITHUB_STEP_SUMMARY
           echo "- Gitee changelog: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${{ steps.tag.outputs.version_name }}.md" >> $GITHUB_STEP_SUMMARY
+          echo "- Gitee release: https://gitee.com/${{ env.GITEE_REPO }}/releases/tag/${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
