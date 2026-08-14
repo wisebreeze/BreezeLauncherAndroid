@@ -2,11 +2,15 @@ name: 'Android CI'
 
 # This workflow lives in the public BreezeLauncherAndroid repo purely to
 # consume GitHub Actions free minutes (2000/min/month for private repos).
-# Source code is cloned from the private BreezeLauncher repo at build time,
-# and the signed APK is uploaded to the `artifact` release on THIS public
-# repo. Neither source code nor release artifacts ever live in the private
-# repo — the private repo's `artifact` release is used only for build
-# caches (submodules/gradle), not the APK.
+# Source code is cloned from the private BreezeLauncher repo at build time.
+#
+# Minify toggle (workflow_dispatch input, default OFF):
+#   OFF (-Pbreeze.minify=false): skips R8 + resource shrinking. ~3min
+#     faster. APK uploads to the PRIVATE repo's `artifact` release
+#     (wisebreeze/BreezeLauncher) via PRIVATE_REPO_TOKEN — internal
+#     verification only, not for public distribution.
+#   ON (default R8): full minify + resource shrink. APK uploads to THIS
+#     public repo's `artifact` release for public download.
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -18,6 +22,11 @@ name: 'Android CI'
 
 on:
   workflow_dispatch:
+    inputs:
+      minify:
+        description: 'Run R8 minify + resource shrink. ON = public repo upload (slower, smaller APK). OFF = private repo upload (faster, unobfuscated).'
+        type: boolean
+        default: false
 
 env:
   GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
@@ -125,9 +134,13 @@ jobs:
           # stale app/build and CMake would still recompile correctly
           # (incremental), but if app/build was evicted the CMake cache
           # (.cxx) would be gone and force a full native rebuild.
-          key: build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-${{ steps.private_sha.outputs.sha }}
+          #
+          # Also key on the minify toggle — minified and unminified
+          # builds produce completely different dex/mapping outputs, so
+          # a cache restore across the two states would corrupt the build.
+          key: build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-${{ steps.private_sha.outputs.sha }}
           restore-keys: |
-            build-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-
+            build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-
 
       - name: Setup Android NDK Environment
         run: |
@@ -148,11 +161,18 @@ jobs:
           echo "assemble_task=assembleRelease" >> $GITHUB_OUTPUT
           echo "apk_dir=app/build/outputs/apk/release" >> $GITHUB_OUTPUT
           echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
+          # Pass -Pbreeze.minify=false when minify is off so the Gradle
+          # build skips R8 + resource shrinking entirely.
+          if [ "${{ inputs.minify }}" = "true" ]; then
+            echo "gradle_args=" >> $GITHUB_OUTPUT
+          else
+            echo "gradle_args=-Pbreeze.minify=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build APK
         run: |
-          echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }})..."
-          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} --no-daemon --parallel --build-cache --warn
+          echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ inputs.minify }})..."
+          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --no-daemon --parallel --build-cache --warn
 
       - name: Decode and setup keystore
         # The release APK is signed with the production keystore. The
@@ -189,28 +209,30 @@ jobs:
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
           java -jar $BUILD_TOOLS/lib/apksigner.jar verify --print-certs "${{ steps.apk_name.outputs.final_name }}"
 
-      - name: Ensure artifact release exists (on public repo)
-        # Also publish the APK on THIS public repo so external users
-        # can download it without access to the private repo. Uses the
-        # default GITHUB_TOKEN which has Contents: Write on the repo
-        # where the workflow runs. `|| true` tolerates the parallel race.
+      - name: Ensure artifact release exists
+        # When minify is ON, publish to THIS public repo for public download
+        # (uses default GITHUB_TOKEN). When OFF, publish to the PRIVATE repo
+        # for internal verification (uses PRIVATE_REPO_TOKEN). `|| true`
+        # tolerates the parallel race when multiple matrix jobs run.
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ inputs.minify && secrets.GITHUB_TOKEN || secrets.PRIVATE_REPO_TOKEN }}
+          TARGET_REPO: ${{ inputs.minify && github.repository || env.PRIVATE_REPO }}
         run: |
           gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
-            --repo ${{ github.repository }} \
+            --repo "$TARGET_REPO" \
             --title "BreezeLauncher Build Artifacts" \
             --notes "Automated build artifacts from CI. The latest APK is always attached to this release." \
-            --draft=false --prerelease=false 2>/dev/null || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo ${{ github.repository }} >/dev/null
+            --draft=false --prerelease=false 2>/dev/null || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo "$TARGET_REPO" >/dev/null
 
-      - name: Upload APK to artifact release (on public repo)
+      - name: Upload APK to artifact release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ inputs.minify && secrets.GITHUB_TOKEN || secrets.PRIVATE_REPO_TOKEN }}
+          TARGET_REPO: ${{ inputs.minify && github.repository || env.PRIVATE_REPO }}
         run: |
           APK_FILE="${{ steps.apk_name.outputs.final_name }}"
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo ${{ github.repository }} 2>/dev/null || true
-          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo ${{ github.repository }}
-          echo "Uploaded $APK_FILE to artifact release on ${{ github.repository }}"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo "$TARGET_REPO" 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo "$TARGET_REPO"
+          echo "Uploaded $APK_FILE to artifact release on $TARGET_REPO"
 
       - name: Cleanup stale build caches
         # Caches live on THIS public repo (caches are scoped per-repo
