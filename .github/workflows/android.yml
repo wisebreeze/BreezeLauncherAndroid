@@ -37,7 +37,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     permissions:
       # GITHUB_TOKEN needs contents:write to create releases and
       # upload assets on THIS public repo. The private repo upload
@@ -55,15 +55,16 @@ jobs:
           #   package: com.antutu.ABenchMark  # disabled — no longer building antutu variant
     steps:
       - name: Checkout private source repo
-        # Clone the private BreezeLauncher repo (full history needed for
-        # version tags / gradle versioning). MUST run before setup-java
-        # with `cache: gradle`, otherwise setup-java finds no gradle
-        # files to hash and fails with "No file matched". PAT must have
-        # `repo` scope (or fine-grained: Contents: Read on BreezeLauncher).
+        # Shallow clone the private BreezeLauncher repo. Version is derived
+        # from the build date (not git tags), so full history is unnecessary.
+        # MUST run before setup-java with `cache: gradle`, otherwise
+        # setup-java finds no gradle files to hash and fails with
+        # "No file matched". PAT must have `repo` scope (or fine-grained:
+        # Contents: Read on BreezeLauncher).
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
-          git clone https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
+          git clone --depth 1 --branch main https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
           git config user.name "wisebreeze"
           git config user.email "wisebreeze@users.noreply.github.com"
 
@@ -117,6 +118,7 @@ jobs:
         with:
           path: |
             app/build
+            app/.cxx
             minecraft/build
           # Key on the variant FIRST — different applicationId produces
           # different BuildConfig (APPLICATION_ID) and processed manifest,
