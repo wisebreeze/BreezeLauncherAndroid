@@ -5,12 +5,10 @@ name: 'Android CI'
 # Source code is cloned from the private BreezeLauncher repo at build time.
 #
 # Minify toggle (workflow_dispatch input, default OFF):
-#   OFF (-Pbreeze.minify=false): skips R8 + resource shrinking. ~3min
-#     faster. APK uploads to the PRIVATE repo's `artifact` release
-#     (wisebreeze/BreezeLauncher) via PRIVATE_REPO_TOKEN — internal
-#     verification only, not for public distribution.
-#   ON (default R8): full minify + resource shrink. APK uploads to THIS
-#     public repo's `artifact` release for public download.
+#   OFF: skips R8. ~3min faster. APK uploads to the PRIVATE repo's
+#     `artifact` release — internal verification only.
+#   ON: full R8. APK uploads to THIS public repo's `artifact` release
+#     for public download.
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -24,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       minify:
-        description: 'Run R8 minify + resource shrink. ON = public repo upload (slower, smaller APK). OFF = private repo upload (faster, unobfuscated).'
+        description: 'R8 minify. ON = public upload (slower). OFF = private upload (faster).'
         type: boolean
         default: false
 
