@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       minify:
-        description: 'R8 minify. ON = public upload (slower). OFF = private upload (faster).'
+        description: 'R8 minify'
         type: boolean
         default: false
 
