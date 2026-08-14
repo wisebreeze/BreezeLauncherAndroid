@@ -81,14 +81,18 @@ jobs:
           # Strip leading 'v' to get versionName (v26.7.17 -> 26.7.17)
           VERSION_NAME="${TAG#v}"
           echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          # Strip any "-fixed<N>" suffix before deriving versionCode,
+          # so tags like v26.8.14-fixed1 parse correctly. The suffix
+          # is informational only and does not affect versionCode.
+          VERSION_NAME_BASE="${VERSION_NAME%%-*}"
           # Derive versionCode from versionName using the Gradle scheme:
           #   <yearPart><MM><DD>  (yearPart = year - 2000 for 2000-2099)
           # e.g. 26.7.17 -> 260717, 3010.6.1 -> 30100601
-          YEAR=$(echo "$VERSION_NAME" | cut -d. -f1)
-          MONTH=$(echo "$VERSION_NAME" | cut -d. -f2)
-          DAY=$(echo "$VERSION_NAME" | cut -d. -f3)
+          YEAR=$(echo "$VERSION_NAME_BASE" | cut -d. -f1)
+          MONTH=$(echo "$VERSION_NAME_BASE" | cut -d. -f2)
+          DAY=$(echo "$VERSION_NAME_BASE" | cut -d. -f3)
           if [ -z "$DAY" ]; then
-            echo "::error::versionName '$VERSION_NAME' must be <year>.<month>.<day>"
+            echo "::error::versionName '$VERSION_NAME' must be <year>.<month>.<day>[-fixed<N>]"
             exit 1
           fi
           if [ "$YEAR" -ge 0 ] && [ "$YEAR" -le 99 ]; then
