@@ -36,6 +36,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       # GITHUB_TOKEN needs contents:write to create releases and
       # upload assets on THIS public repo. The private repo upload
