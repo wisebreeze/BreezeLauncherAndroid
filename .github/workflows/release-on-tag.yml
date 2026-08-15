@@ -14,9 +14,9 @@ name: 'Release on publish'
 #   3. Compute the APK's MD5 and regenerate update/update.json with the
 #      new version / versionCode / md5 / download URL / changelog URL.
 #      Commit to main.
-#   4. Mirror update/ to the Gitee BreezeLauncherApp repo (update.json +
-#      changeLog/*.md), exactly like sync-update-to-gitee.yml does on
-#      regular pushes.
+#   4. Sync update manifest to the Gitee BreezeLauncherApp repo
+#      (update.json + changeLog/*.md), exactly like
+#      sync-update-to-gitee.yml does on regular pushes.
 #
 # NOTE: the APK is NOT mirrored to a Gitee release. Gitee caps a single
 # release attachment at 100 MB and uploads from GitHub Actions are slow
@@ -253,7 +253,7 @@ jobs:
           print('Manifest OK:', d)
           PY
 
-      - name: Mirror update/ to Gitee
+      - name: Sync update manifest to Gitee
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
