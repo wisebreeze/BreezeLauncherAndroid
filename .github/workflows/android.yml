@@ -5,10 +5,14 @@ name: 'Android CI'
 # Source code is cloned from the private BreezeLauncher repo at build time.
 #
 # Minify toggle (workflow_dispatch input, default OFF):
-#   OFF: skips R8. ~3min faster. APK uploads to the PRIVATE repo's
-#     `artifact` release — internal verification only.
+#   OFF: skips R8. ~3min faster. APK uploads to THIS public repo's
+#     `artifact` release as `<name>-<variant>-release-nominify.apk`
+#     for testing/verification.
 #   ON: full R8. APK uploads to THIS public repo's `artifact` release
-#     for public download.
+#     as `<name>-<variant>-release.apk` — this is the canonical name
+#     that release-on-tag.yml pulls for versioned releases.
+# Both builds coexist on the same `artifact` release thanks to the
+# distinct filename; the private repo is no longer used for artifacts.
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -161,12 +165,15 @@ jobs:
           echo "build_type=release" >> $GITHUB_OUTPUT
           echo "assemble_task=assembleRelease" >> $GITHUB_OUTPUT
           echo "apk_dir=app/build/outputs/apk/release" >> $GITHUB_OUTPUT
-          echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
-          # Pass -Pbreeze.minify=false when minify is off so the Gradle
-          # build skips R8 + resource shrinking entirely.
+          # When minify is OFF, append -nominify to the filename so the
+          # non-R8 build coexists with the R8 build on the same artifact
+          # release instead of clobbering it. The R8 build keeps the
+          # canonical name that release-on-tag.yml pulls.
           if [ "${{ inputs.minify }}" = "true" ]; then
+            echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
             echo "gradle_args=" >> $GITHUB_OUTPUT
           else
+            echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release-nominify.apk" >> $GITHUB_OUTPUT
             echo "gradle_args=-Pbreeze.minify=false" >> $GITHUB_OUTPUT
           fi
 
@@ -211,29 +218,27 @@ jobs:
           java -jar $BUILD_TOOLS/lib/apksigner.jar verify --print-certs "${{ steps.apk_name.outputs.final_name }}"
 
       - name: Ensure artifact release exists
-        # When minify is ON, publish to THIS public repo for public download
-        # (uses default GITHUB_TOKEN). When OFF, publish to the PRIVATE repo
-        # for internal verification (uses PRIVATE_REPO_TOKEN). `|| true`
+        # Both minified and non-minified builds publish to THIS public
+        # repo's `artifact` release. They coexist thanks to the distinct
+        # filename (-nominify suffix on the non-R8 build). `|| true`
         # tolerates the parallel race when multiple matrix jobs run.
         env:
-          GH_TOKEN: ${{ inputs.minify && secrets.GITHUB_TOKEN || secrets.PRIVATE_REPO_TOKEN }}
-          TARGET_REPO: ${{ inputs.minify && github.repository || env.PRIVATE_REPO }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
-            --repo "$TARGET_REPO" \
+            --repo "${{ github.repository }}" \
             --title "BreezeLauncher Build Artifacts" \
             --notes "Automated build artifacts from CI. The latest APK is always attached to this release." \
-            --draft=false --prerelease=false 2>/dev/null || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo "$TARGET_REPO" >/dev/null
+            --draft=false --prerelease=false 2>/dev/null || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo "${{ github.repository }}" >/dev/null
 
       - name: Upload APK to artifact release
         env:
-          GH_TOKEN: ${{ inputs.minify && secrets.GITHUB_TOKEN || secrets.PRIVATE_REPO_TOKEN }}
-          TARGET_REPO: ${{ inputs.minify && github.repository || env.PRIVATE_REPO }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APK_FILE="${{ steps.apk_name.outputs.final_name }}"
-          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo "$TARGET_REPO" 2>/dev/null || true
-          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo "$TARGET_REPO"
-          echo "Uploaded $APK_FILE to artifact release on $TARGET_REPO"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --repo "${{ github.repository }}" 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo "${{ github.repository }}"
+          echo "Uploaded $APK_FILE to artifact release on ${{ github.repository }}"
 
       - name: Cleanup stale build caches
         # Caches live on THIS public repo (caches are scoped per-repo
