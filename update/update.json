@@ -5,5 +5,6 @@
   "forceUpdateBelowVersionCode": 260700,
   "download": "https://github.com/wisebreeze/BreezeLauncherAndroid/releases/download/v26.8.14-fixed1/BreezeLauncher-default-release.apk",
   "md5": "bfa5158e51ad8439278ea0b96a1bddda",
+  "parts": [],
   "changeLog": "https://gitee.com/wisebreeze/BreezeLauncherApp/raw/main/changeLog/26.8.14-fixed1.md"
 }

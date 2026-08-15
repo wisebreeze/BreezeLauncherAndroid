@@ -18,8 +18,13 @@ name: 'Release on publish'
 #      changeLog/*.md), exactly like sync-update-to-gitee.yml does on
 #      regular pushes.
 #   5. Create (or update) a Gitee release for the same tag and upload
-#      the APK as an attachment, so the Gitee mirror has a 1:1 copy of
-#      the GitHub release including the APK asset.
+#      the APK as a set of split parts (BreezeLauncher-default-release.apk.partNN)
+#      as attachments, so the Gitee mirror can host APKs larger than
+#      Gitee's 100 MB single-attachment cap. Previous parts on the same
+#      release are deleted before the new ones are uploaded. Each part's
+#      URL + MD5 + size is recorded in update.json under `parts[]` so
+#      the app can download them sequentially, verify each chunk, and
+#      concatenate them back into the original APK.
 #
 # Tag naming convention: v<versionName>, e.g. v26.7.17. The leading `v`
 # is stripped to obtain the versionName. versionCode is derived from the
@@ -53,6 +58,10 @@ env:
   GITEE_BRANCH: main
   APK_ASSET_NAME: BreezeLauncher-default-release.apk
   ARTIFACT_RELEASE_TAG: artifact
+  # Gitee caps a single release attachment at 100 MB. Split the APK
+  # into chunks below this limit so large builds can still be mirrored
+  # to Gitee. The app reassembles the parts at download time.
+  APK_PART_BYTES: 94371840
 
 jobs:
   release:
@@ -166,6 +175,61 @@ jobs:
           echo "md5=$MD5" >> $GITHUB_OUTPUT
           echo "APK MD5: $MD5"
 
+      - name: Split APK into Gitee-friendly parts
+        # Gitee caps a single release attachment at 100 MB. Split the
+        # APK into chunks of APK_PART_BYTES (90 MB) so each part fits.
+        # The app reassembles the parts in order at download time.
+        # `split -d -a 2` produces .part00, .part01, ...; we rename to
+        # .part01, .part02, ... so the first chunk is 1-indexed and the
+        # sort order matches the chunk order on the Gitee release page.
+        id: split
+        run: |
+          APK_PATH="/tmp/apk/${{ env.APK_ASSET_NAME }}"
+          PART_DIR="/tmp/apk/parts"
+          rm -rf "$PART_DIR"
+          mkdir -p "$PART_DIR"
+
+          split -b "${{ env.APK_PART_BYTES }}" -d -a 2 "$APK_PATH" "$PART_DIR/${{ env.APK_ASSET_NAME }}.part"
+
+          # Rename .part00 -> .part01, .part01 -> .part02, ... so parts
+          # are 1-indexed and sort lexicographically in chunk order.
+          shopt -s nullglob
+          PART_COUNT=0
+          for f in "$PART_DIR/${{ env.APK_ASSET_NAME }}.part"*; do
+            PART_COUNT=$((PART_COUNT + 1))
+          done
+          # Process in reverse so we never overwrite an unrenamed file.
+          for i in $(seq $((PART_COUNT - 1)) -1 0); do
+            src=$(printf "$PART_DIR/${{ env.APK_ASSET_NAME }}.part%02d" "$i")
+            dst=$(printf "$PART_DIR/${{ env.APK_ASSET_NAME }}.part%02d" "$((i + 1))")
+            mv "$src" "$dst"
+          done
+          echo "Split into $PART_COUNT parts"
+          ls -la "$PART_DIR/"
+
+          # Compute per-part MD5 + size and emit a JSON array for the
+          # update.json `parts` field. The URLs are filled in later by
+          # the Gitee upload step (we only know them after upload).
+          python3 - <<'PY'
+          import os, hashlib, json
+          part_dir = "/tmp/apk/parts"
+          base = os.environ["APK_ASSET_NAME"]
+          files = sorted(f for f in os.listdir(part_dir) if f.startswith(base + ".part"))
+          parts = []
+          for f in files:
+              p = os.path.join(part_dir, f)
+              h = hashlib.md5()
+              with open(p, "rb") as fh:
+                  for chunk in iter(lambda: fh.read(1 << 20), b""):
+                      h.update(chunk)
+              parts.append({"name": f, "md5": h.hexdigest(), "size": os.path.getsize(p)})
+          with open("/tmp/apk/parts.json", "w") as out:
+              json.dump(parts, out, indent=2)
+          print(json.dumps(parts, indent=2))
+          PY
+
+          echo "part_count=$PART_COUNT" >> $GITHUB_OUTPUT
+
       - name: Write changelog file
         run: |
           mkdir -p update/changeLog
@@ -173,6 +237,11 @@ jobs:
           echo "Wrote update/changeLog/${{ steps.tag.outputs.version_name }}.md"
 
       - name: Regenerate update.json
+        # Writes update.json with the standard fields plus a `parts`
+        # array. The `parts` URLs are left empty here and filled in by
+        # the Gitee upload step (which rewrites update.json in place
+        # after each part is uploaded). This keeps the manifest
+        # committable even if the Gitee upload step is skipped.
         run: |
           VERSION="${{ steps.tag.outputs.version_name }}"
           VERSION_CODE="${{ steps.tag.outputs.version_code }}"
@@ -193,17 +262,40 @@ jobs:
             FORCE_BELOW=$(python3 -c "import json;print(json.load(open('update/update.json')).get('forceUpdateBelowVersionCode', 0))" 2>/dev/null || echo "0")
           fi
 
-          cat > update/update.json <<EOF
-          {
-            "version": "$VERSION",
-            "versionCode": $VERSION_CODE,
-            "forceUpdate": $FORCE_UPDATE,
-            "forceUpdateBelowVersionCode": $FORCE_BELOW,
-            "download": "$DOWNLOAD_URL",
-            "md5": "$MD5",
-            "changeLog": "$CHANGELOG_URL"
+          # Merge the per-part metadata (name/md5/size from the split
+          # step) into update.json with a placeholder `url` field that
+          # the Gitee upload step will overwrite.
+          python3 - <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          version_code = int(os.environ["VERSION_CODE"])
+          md5 = os.environ["MD5"]
+          download_url = os.environ["DOWNLOAD_URL"]
+          changelog_url = os.environ["CHANGELOG_URL"]
+          force_update = os.environ["FORCE_UPDATE"] == "true"
+          force_below = int(os.environ["FORCE_BELOW"])
+
+          with open("/tmp/apk/parts.json") as f:
+              parts_meta = json.load(f)
+          # Each part gets a placeholder url; the Gitee upload step
+          # fills it in after the attachment is created.
+          parts = [{"url": "", **p} for p in parts_meta]
+
+          manifest = {
+              "version": version,
+              "versionCode": version_code,
+              "forceUpdate": force_update,
+              "forceUpdateBelowVersionCode": force_below,
+              "download": download_url,
+              "md5": md5,
+              "parts": parts,
+              "changeLog": changelog_url,
           }
-          EOF
+          with open("update/update.json", "w") as out:
+              json.dump(manifest, out, indent=2)
+              out.write("\n")
+          print(json.dumps(manifest, indent=2))
+          PY
           echo "--- update.json ---"
           cat update/update.json
           # Validate JSON syntax before committing.
@@ -300,10 +392,20 @@ jobs:
 
       - name: Mirror release to Gitee
         # Create (or update) a Gitee release for the same tag and upload
-        # the APK as an attachment. Mirrors the GitHub release 1:1 so
-        # users on the Gitee mirror can download the APK without leaving
-        # Gitee. Idempotent: re-running on the same tag updates the
-        # attachment instead of erroring out.
+        # the APK as a set of split parts (BreezeLauncher-default-release.apk.partNN).
+        # Gitee caps a single release attachment at 100 MB, so the APK is
+        # split into 90 MB chunks (see the "Split APK" step above). The
+        # app downloads each part in order, verifies its MD5, and
+        # concatenates them back into the original APK.
+        #
+        # Idempotent: re-running on the same tag deletes every existing
+        # *.partNN attachment before uploading the new set, so stale
+        # parts from a previous run do not accumulate.
+        #
+        # After each part is uploaded, its browser_download_url is
+        # written back into update/update.json (parts[].url) and the
+        # manifest is re-committed to main + re-mirrored to Gitee so
+        # the app can resolve the part URLs immediately.
         id: gitee_release
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
@@ -314,7 +416,7 @@ jobs:
           fi
 
           TAG="${{ steps.tag.outputs.tag }}"
-          APK_PATH="/tmp/apk/${{ env.APK_ASSET_NAME }}"
+          PART_DIR="/tmp/apk/parts"
           GITEE_API="https://gitee.com/api/v5/repos/${{ env.GITEE_REPO }}"
 
           # 1. Try to fetch an existing release by tag.
@@ -343,33 +445,118 @@ jobs:
             echo "Found existing Gitee release ID: $RELEASE_ID"
           fi
 
-          # 3. Delete any existing attachment with the same name so the
-          #    upload below does not produce a duplicate.
-          EXISTING_ATTACH_ID=$(curl -fsSL -X GET \
+          # 3. Delete EVERY existing attachment whose name starts with
+          #    "<APK_ASSET_NAME>.part" so re-runs do not leave stale
+          #    parts from a previous build. We also delete the legacy
+          #    single-APK attachment (APK_ASSET_NAME) if present, since
+          #    the app now reads parts[] instead.
+          EXISTING_ATTACHMENTS=$(curl -fsSL -X GET \
             "${GITEE_API}/releases/${RELEASE_ID}?access_token=${GITEE_TOKEN}" \
-            | jq -r --arg name "${{ env.APK_ASSET_NAME }}" \
-              '.attach_files[]? | select(.name == $name) | .id' 2>/dev/null || echo "")
+            | jq -r --arg prefix "${{ env.APK_ASSET_NAME }}" \
+              '.attach_files[]? | select(.name == $prefix or (.name | startswith($prefix + ".part"))) | "\(.id) \(.name)"' 2>/dev/null || echo "")
 
-          if [ -n "$EXISTING_ATTACH_ID" ]; then
-            echo "Deleting existing APK attachment (id=$EXISTING_ATTACH_ID)..."
-            curl -fsSL -X DELETE \
-              "${GITEE_API}/releases/${RELEASE_ID}/attach_files/${EXISTING_ATTACH_ID}?access_token=${GITEE_TOKEN}" \
-              || echo "WARN: failed to delete existing attachment, will try to upload anyway"
+          if [ -n "$EXISTING_ATTACHMENTS" ]; then
+            echo "$EXISTING_ATTACHMENTS" | while read -r AID ANAME; do
+              [ -z "$AID" ] && continue
+              echo "Deleting existing attachment: $ANAME (id=$AID)..."
+              curl -fsSL -X DELETE \
+                "${GITEE_API}/releases/${RELEASE_ID}/attach_files/${AID}?access_token=${GITEE_TOKEN}" \
+                || echo "WARN: failed to delete attachment $ANAME, continuing"
+            done
           fi
 
-          # 4. Upload the APK as a release attachment.
-          echo "Uploading APK to Gitee release $RELEASE_ID..."
-          UPLOAD_RESP=$(curl -fsSL -X POST \
-            "${GITEE_API}/releases/${RELEASE_ID}/attach_files" \
-            -F "access_token=${GITEE_TOKEN}" \
-            -F "file=@${APK_PATH}")
-          echo "Upload response: $UPLOAD_RESP"
+          # 4. Upload each part in order. After every successful upload,
+          #    write the part's browser_download_url back into
+          #    update/update.json so the manifest on main always reflects
+          #    the latest uploaded part (useful if the run is interrupted).
+          shopt -s nullglob
+          PART_FILES=( "$PART_DIR/${{ env.APK_ASSET_NAME }}.part"* )
+          echo "Uploading ${#PART_FILES[@]} parts to Gitee release $RELEASE_ID..."
 
-          GITEE_ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.browser_download_url // .url // empty')
-          echo "Gitee asset URL: $GITEE_ASSET_URL"
+          for PART_FILE in "${PART_FILES[@]}"; do
+            PART_NAME=$(basename "$PART_FILE")
+            echo "Uploading $PART_NAME..."
+            UPLOAD_RESP=$(curl -fsSL -X POST \
+              "${GITEE_API}/releases/${RELEASE_ID}/attach_files" \
+              -F "access_token=${GITEE_TOKEN}" \
+              -F "file=@${PART_FILE}")
+            PART_URL=$(echo "$UPLOAD_RESP" | jq -r '.browser_download_url // .url // empty')
+            if [ -z "$PART_URL" ]; then
+              echo "::error::Failed to upload $PART_NAME. Response: $UPLOAD_RESP"
+              exit 1
+            fi
+            echo "  -> $PART_URL"
+
+            # Patch update.json: set parts[].url where name == PART_NAME.
+            python3 - "$PART_NAME" "$PART_URL" <<'PY'
+            import json, sys
+            name, url = sys.argv[1], sys.argv[2]
+            with open("update/update.json") as f:
+                d = json.load(f)
+            for p in d.get("parts", []):
+                if p.get("name") == name:
+                    p["url"] = url
+            with open("update/update.json", "w") as out:
+                json.dump(d, out, indent=2)
+                out.write("\n")
+            PY
+          done
+
+          echo "All parts uploaded. Final update.json:"
+          cat update/update.json
 
           echo "gitee_release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
-          echo "gitee_asset_url=$GITEE_ASSET_URL" >> "$GITHUB_OUTPUT"
+          echo "gitee_part_count=${#PART_FILES[@]}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit filled-in part URLs to main
+        # The Gitee upload step rewrote parts[].url in update/update.json.
+        # Commit that final manifest to main so the app can resolve the
+        # part URLs. Without this step the manifest on main would still
+        # have empty URLs and the app would fall back to the single
+        # GitHub release download (which works but bypasses the Gitee
+        # mirror).
+        run: |
+          git add update/update.json
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No URL changes to commit (parts already had URLs)."
+            exit 0
+          fi
+          git commit -m "chore(update): fill Gitee part URLs for ${{ steps.tag.outputs.version_name }}
+
+          - ${{ steps.gitee_release.outputs.gitee_part_count }} parts uploaded to Gitee release ${{ steps.tag.outputs.tag }}
+          - parts[].url written back into update.json"
+          git push origin HEAD:main
+          echo "Pushed part URLs to main"
+
+      - name: Re-mirror update.json to Gitee
+        # The earlier "Mirror update/ to Gitee" step ran before the
+        # parts were uploaded, so the Gitee copy of update.json still
+        # has empty part URLs. Re-sync just update.json so the Gitee
+        # mirror matches main.
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "GITEE_TOKEN not set, skipping re-mirror."
+            exit 0
+          fi
+          GITEE_WORKDIR="$RUNNER_TEMP/gitee-work2"
+          rm -rf "$GITEE_WORKDIR"
+          mkdir -p "$GITEE_WORKDIR"
+          cd "$GITEE_WORKDIR"
+          git clone --depth 1 --branch "${{ env.GITEE_BRANCH }}" \
+            "https://wisebreeze:${GITEE_TOKEN}@gitee.com/${{ env.GITEE_REPO }}.git" .
+          git config user.name "wisebreeze"
+          git config user.email "12232263+wisebreeze@user.noreply.gitee.com"
+          cp "$GITHUB_WORKSPACE/update/update.json" ./update.json
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Gitee update.json already up to date."
+            exit 0
+          fi
+          git add update.json
+          git commit -m "chore: fill Gitee part URLs for v${{ steps.tag.outputs.version_name }}"
+          git push origin "${{ env.GITEE_BRANCH }}"
+          echo "Re-mirrored update.json to Gitee"
 
       - name: Notify Discord (English changelog)
         # Posts the English section of the release body to the CubeVisage
@@ -391,6 +578,7 @@ jobs:
           echo "- versionName: \`${{ steps.tag.outputs.version_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- versionCode: \`${{ steps.tag.outputs.version_code }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- APK MD5: \`${{ steps.md5.outputs.md5 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Split parts: \`${{ steps.split.outputs.part_count }}\` × ${{ env.APK_PART_BYTES }} bytes" >> $GITHUB_STEP_SUMMARY
           echo "- Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- Gitee manifest: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/update.json" >> $GITHUB_STEP_SUMMARY
           echo "- Gitee changelog: https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${{ steps.tag.outputs.version_name }}.md" >> $GITHUB_STEP_SUMMARY
