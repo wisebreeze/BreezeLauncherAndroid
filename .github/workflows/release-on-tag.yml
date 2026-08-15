@@ -243,23 +243,23 @@ jobs:
         # after each part is uploaded). This keeps the manifest
         # committable even if the Gitee upload step is skipped.
         run: |
-          VERSION="${{ steps.tag.outputs.version_name }}"
-          VERSION_CODE="${{ steps.tag.outputs.version_code }}"
-          MD5="${{ steps.md5.outputs.md5 }}"
+          export VERSION="${{ steps.tag.outputs.version_name }}"
+          export VERSION_CODE="${{ steps.tag.outputs.version_code }}"
+          export MD5="${{ steps.md5.outputs.md5 }}"
           # Canonical download URL points to THIS repo's release asset.
           # The app may rewrite it to a mirror prefix at download time
           # when the user has enabled GitHub mirror acceleration.
-          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${{ env.APK_ASSET_NAME }}"
-          CHANGELOG_URL="https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${VERSION}.md"
+          export DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${{ env.APK_ASSET_NAME }}"
+          export CHANGELOG_URL="https://gitee.com/${{ env.GITEE_REPO }}/raw/${{ env.GITEE_BRANCH }}/changeLog/${VERSION}.md"
 
           # Preserve forceUpdate / forceUpdateBelowVersionCode from the
           # existing update.json if present (so a release does not
           # silently clear a force-update floor). Default to false / 0.
-          FORCE_UPDATE="false"
-          FORCE_BELOW="0"
+          export FORCE_UPDATE="false"
+          export FORCE_BELOW="0"
           if [ -f update/update.json ]; then
-            FORCE_UPDATE=$(python3 -c "import json;print(str(json.load(open('update/update.json')).get('forceUpdate', False)).lower())" 2>/dev/null || echo "false")
-            FORCE_BELOW=$(python3 -c "import json;print(json.load(open('update/update.json')).get('forceUpdateBelowVersionCode', 0))" 2>/dev/null || echo "0")
+            export FORCE_UPDATE=$(python3 -c "import json;print(str(json.load(open('update/update.json')).get('forceUpdate', False)).lower())" 2>/dev/null || echo "false")
+            export FORCE_BELOW=$(python3 -c "import json;print(json.load(open('update/update.json')).get('forceUpdateBelowVersionCode', 0))" 2>/dev/null || echo "0")
           fi
 
           # Merge the per-part metadata (name/md5/size from the split
