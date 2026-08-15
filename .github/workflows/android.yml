@@ -6,13 +6,14 @@ name: 'Android CI'
 #
 # Minify toggle (workflow_dispatch input, default OFF):
 #   OFF: skips R8. ~3min faster. APK uploads to THIS public repo's
-#     `artifact` release as `<name>-<variant>-release-nominify.apk`
-#     for testing/verification.
+#     `artifact` release for testing/verification.
 #   ON: full R8. APK uploads to THIS public repo's `artifact` release
-#     as `<name>-<variant>-release.apk` — this is the canonical name
-#     that release-on-tag.yml pulls for versioned releases.
-# Both builds coexist on the same `artifact` release thanks to the
-# distinct filename; the private repo is no longer used for artifacts.
+#     — this is the canonical name that release-on-tag.yml pulls for
+#     versioned releases.
+# Both builds share the same filename, so uploading a non-R8 build
+# overwrites the previous R8 build (and vice versa). Run minify=ON
+# before publishing a versioned release so the artifact release holds
+# the R8 build when release-on-tag.yml fires.
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -165,15 +166,12 @@ jobs:
           echo "build_type=release" >> $GITHUB_OUTPUT
           echo "assemble_task=assembleRelease" >> $GITHUB_OUTPUT
           echo "apk_dir=app/build/outputs/apk/release" >> $GITHUB_OUTPUT
-          # When minify is OFF, append -nominify to the filename so the
-          # non-R8 build coexists with the R8 build on the same artifact
-          # release instead of clobbering it. The R8 build keeps the
-          # canonical name that release-on-tag.yml pulls.
+          echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
+          # Pass -Pbreeze.minify=false when minify is off so the Gradle
+          # build skips R8 + resource shrinking entirely.
           if [ "${{ inputs.minify }}" = "true" ]; then
-            echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
             echo "gradle_args=" >> $GITHUB_OUTPUT
           else
-            echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release-nominify.apk" >> $GITHUB_OUTPUT
             echo "gradle_args=-Pbreeze.minify=false" >> $GITHUB_OUTPUT
           fi
 
