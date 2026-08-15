@@ -71,7 +71,10 @@ jobs:
     # trying to derive a versionCode from "artifact".
     if: github.event.release.tag_name != 'artifact'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Gitee release attachment uploads are slow (~150 KB/s from GitHub
+    # Actions). A 90 MB part takes ~10 min, and a full release with 2+
+    # parts + re-mirror steps can exceed 20 min. 30 min gives headroom.
+    timeout-minutes: 30
     steps:
       - name: Resolve tag
         id: tag
