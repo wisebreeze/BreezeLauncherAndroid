@@ -488,18 +488,10 @@ jobs:
             echo "  -> $PART_URL"
 
             # Patch update.json: set parts[].url where name == PART_NAME.
-            python3 - "$PART_NAME" "$PART_URL" <<'PY'
-            import json, sys
-            name, url = sys.argv[1], sys.argv[2]
-            with open("update/update.json") as f:
-                d = json.load(f)
-            for p in d.get("parts", []):
-                if p.get("name") == name:
-                    p["url"] = url
-            with open("update/update.json", "w") as out:
-                json.dump(d, out, indent=2)
-                out.write("\n")
-            PY
+            # Uses a script file instead of an inline heredoc because the
+            # closing delimiter of a heredoc inside a for-loop would need
+            # to be at column 0, which conflicts with the loop's indent.
+            python3 .github/scripts/patch_part_url.py "$PART_NAME" "$PART_URL"
           done
 
           echo "All parts uploaded. Final update.json:"
