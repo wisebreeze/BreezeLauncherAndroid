@@ -1,0 +1,111 @@
+name: 'Rust Native Build'
+
+# Builds the Rust `mcarchive` crate (NetEase MC Bedrock archive
+# encrypt/decrypt) from the private BreezeLauncher repo into an Android
+# shared library and uploads it to THIS public repo's `native` release.
+#
+# The launcher pulls `libmcarchive.so` from that release at build time
+# (see app/build.gradle.kts downloadNativeLibs task), so the Rust
+# toolchain is NOT required for the regular APK build.
+#
+# Triggers:
+#   - workflow_dispatch (manual)
+#   - push to main that touches rust/mcarchive/**
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/mcarchive/**'
+      - '.github/workflows/rust-build.yml'
+
+env:
+  RUST_TARGET: 'aarch64-linux-android'
+  PRIVATE_REPO: 'wisebreeze/BreezeLauncher'
+  NATIVE_RELEASE_TAG: 'native'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout private source repo
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git clone --depth 1 --branch main https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
+          git config user.name "wisebreeze"
+          git config user.email "wisebreeze@users.noreply.github.com"
+
+      - name: Capture private repo SHA
+        id: private_sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.RUST_TARGET }}
+
+      - name: Setup Android NDK
+        # The NDK ships with a standalone sysroot that cargo can target
+        # directly via the `cc` crate's ANDROID_NDK_HOME discovery. No
+        # custom linker config is needed for a pure-Rust cdylib.
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+
+      - name: Cache cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/mcarchive/target
+          key: cargo-${{ runner.os }}-${{ env.RUST_TARGET }}-${{ hashFiles('rust/mcarchive/Cargo.toml', 'rust/mcarchive/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ env.RUST_TARGET }}-
+
+      - name: Build libmcarchive.so
+        # --release applies the size-optimized profile from Cargo.toml
+        # (opt-level="z", lto=true, strip=true, panic="abort"). The
+        # resulting .so is ~50-100KB.
+        working-directory: rust/mcarchive
+        run: |
+          cargo build --release --target ${{ env.RUST_TARGET }}
+          ls -lh target/${{ env.RUST_TARGET }}/release/libmcarchive.so
+
+      - name: Stage artifact
+        run: |
+          mkdir -p artifact
+          cp rust/mcarchive/target/${{ env.RUST_TARGET }}/release/libmcarchive.so \
+             artifact/libmcarchive-${{ steps.private_sha.outputs.sha }}.so
+          # Also keep a stable-name copy so the launcher's Gradle
+          # download task can fetch a fixed URL.
+          cp rust/mcarchive/target/${{ env.RUST_TARGET }}/release/libmcarchive.so \
+             artifact/libmcarchive.so
+          sha256sum artifact/libmcarchive.so > artifact/libmcarchive.so.sha256
+          ls -la artifact/
+
+      - name: Ensure native release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create ${{ env.NATIVE_RELEASE_TAG }} \
+            --repo "${{ github.repository }}" \
+            --title "BreezeLauncher Native Libraries" \
+            --notes "Automated Rust native build artifacts. Latest .so always attached." \
+            --draft=false --prerelease=false 2>/dev/null \
+            || gh release view ${{ env.NATIVE_RELEASE_TAG }} --repo "${{ github.repository }}" >/dev/null
+
+      - name: Upload .so to native release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for f in artifact/libmcarchive.so artifact/libmcarchive.so.sha256 artifact/libmcarchive-${{ steps.private_sha.outputs.sha }}.so; do
+            gh release delete-asset ${{ env.NATIVE_RELEASE_TAG }} "$(basename $f)" --repo "${{ github.repository }}" 2>/dev/null || true
+            gh release upload ${{ env.NATIVE_RELEASE_TAG }} "$f" --clobber --repo "${{ github.repository }}"
+          done
+          echo "Uploaded libmcarchive.so (sha ${{ steps.private_sha.outputs.sha }}) to native release"
