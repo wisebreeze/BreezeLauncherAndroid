@@ -78,24 +78,30 @@ jobs:
 
       - name: Build libmcarchive.so
         # --release applies the size-optimized profile from Cargo.toml
-        # (opt-level="z", lto=true, strip=true, panic="abort"). The
-        # .cargo/config.toml passes -Wl,-z,max-page-size=16384 so the
-        # .so is 16KB-aligned for Android 15+ devices.
+        # (opt-level="z", lto=true, strip=true, panic="abort").
+        # RUSTFLAGS passes -Wl,-z,max-page-size=16384 so the .so is
+        # 16KB-aligned for Android 15+ devices (also in .cargo/config.toml
+        # for local builds, but set here explicitly so CI is not
+        # dependent on config discovery).
         working-directory: rust/mcarchive
+        env:
+          RUSTFLAGS: "-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
         run: |
           cargo build --release --target ${{ env.RUST_TARGET }}
           ls -lh target/${{ env.RUST_TARGET }}/release/libmcarchive.so
 
       - name: Verify 16KB page alignment
         # Android 15+ requires .so LOAD segments aligned to 16384 bytes.
-        # Fail the build if any segment is misaligned.
+        # readelf -W (wide) puts each LOAD on one line with the align
+        # field as the last hex token. Fail if any align != 0x4000.
         run: |
           SO=rust/mcarchive/target/${{ env.RUST_TARGET }}/release/libmcarchive.so
-          echo "ELF segment alignment:"
-          readelf -l "$SO" | grep -E "LOAD" | head -5
-          misaligned=$(readelf -l "$SO" | awk '/LOAD/{print $NF}' | grep -v "^0x4000$" | wc -l)
+          echo "ELF LOAD segments:"
+          readelf -W -l "$SO" | grep -E "^\s+LOAD" || true
+          misaligned=$(readelf -W -l "$SO" | grep -E "^\s+LOAD" | grep -vE "0x4000\s*$" | wc -l)
           if [ "$misaligned" -ne 0 ]; then
             echo "ERROR: $misaligned LOAD segment(s) not aligned to 0x4000 (16384)"
+            readelf -W -l "$SO" | grep -E "^\s+LOAD" | grep -vE "0x4000\s*$"
             exit 1
           fi
           echo "OK: all LOAD segments aligned to 16KB"
