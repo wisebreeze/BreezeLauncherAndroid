@@ -18,6 +18,11 @@ at runtime and shows the Chinese section to Simplified / Traditional
 Chinese users, and the English section to everyone else. A file with
 only one language will leave the other locale's users with no changelog.
 
+**Keep it concise.** Each entry is one short sentence — a title plus a
+brief description, no implementation details, no file names, no
+internal jargon. Users read this in a small update dialog; long
+entries get truncated and ignored.
+
 ### Structure
 
 ```markdown
@@ -27,20 +32,19 @@ only one language will leave the other locale's users with no changelog.
 
 ### New Features
 
-- **Feature title**: One-sentence summary. Detailed explanation of what
-  changed and why.
+- **Feature title**: One short sentence describing what was added.
 
 ### Fixes
 
-- **Fix title**: What was broken and how it is now resolved.
+- **Fix title**: One short sentence describing what was fixed.
 
 ### Improvements
 
-- **Improvement title**: What was enhanced and the resulting benefit.
+- **Improvement title**: One short sentence describing what was enhanced.
 
 ### CI / Build
 
-- **Change title**: Build or CI pipeline change.
+- **Change title**: One short sentence describing the build/CI change.
 
 ---
 
@@ -48,19 +52,19 @@ only one language will leave the other locale's users with no changelog.
 
 ### 新功能
 
-- **功能标题**：一句话概述。详细说明改了什么、为什么。
+- **功能标题**：一句话描述新增了什么。
 
 ### 修复
 
-- **修复标题**：之前什么坏了、现在如何修复。
+- **修复标题**：一句话描述修复了什么。
 
 ### 改进
 
-- **改进标题**：改进了什么、带来什么好处。
+- **改进标题**：一句话描述改进了什么。
 
 ### CI / 构建
 
-- **变更标题**：构建或 CI 流水线变更。
+- **变更标题**：一句话描述构建/CI 变更。
 ```
 
 ### Rules
@@ -77,8 +81,9 @@ only one language will leave the other locale's users with no changelog.
    Improvements, CI / Build). Omit a sub-heading if it has no entries
    rather than leaving it empty.
 6. **List items** — each entry is a `- **Title**: description` bullet.
-   The title is bold, followed by a colon and a space, then the
-   description. Keep descriptions to 1–3 sentences.
+   The title is bold, followed by a colon and a space, then **one short
+   sentence** (typically under 15 words). No multi-line explanations, no
+   code identifiers, no internal class/method names.
 7. **No raw HTML** — Markdown only, so the in-app renderer can display it.
 8. **No trailing whitespace** — keep lines clean to avoid diff noise.
 

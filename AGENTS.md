@@ -98,6 +98,11 @@ Every release body **must** follow the bilingual format below. The app
 parses it at runtime by looking for the `## English` and `## 简体中文`
 markers; a malformed body leaves some users with no changelog.
 
+**Keep it concise.** Each entry is one short sentence — a title plus a
+brief description, no implementation details, no file names, no
+internal jargon. Users read this in a small update dialog; long
+entries get truncated and ignored.
+
 ```markdown
 # <versionName>
 
@@ -105,20 +110,19 @@ markers; a malformed body leaves some users with no changelog.
 
 ### New Features
 
-- **Feature title**: One-sentence summary. Detailed explanation of what
-  changed and why.
+- **Feature title**: One short sentence describing what was added.
 
 ### Fixes
 
-- **Fix title**: What was broken and how it is now resolved.
+- **Fix title**: One short sentence describing what was fixed.
 
 ### Improvements
 
-- **Improvement title**: What was enhanced and the resulting benefit.
+- **Improvement title**: One short sentence describing what was enhanced.
 
 ### CI / Build
 
-- **Change title**: Build or CI pipeline change.
+- **Change title**: One short sentence describing the build/CI change.
 
 ---
 
@@ -126,19 +130,19 @@ markers; a malformed body leaves some users with no changelog.
 
 ### 新功能
 
-- **功能标题**：一句话概述。详细说明改了什么、为什么。
+- **功能标题**：一句话描述新增了什么。
 
 ### 修复
 
-- **修复标题**：之前什么坏了、现在如何修复。
+- **修复标题**：一句话描述修复了什么。
 
 ### 改进
 
-- **改进标题**：改进了什么、带来什么好处。
+- **改进标题**：一句话描述改进了什么。
 
 ### CI / 构建
 
-- **变更标题**：构建或 CI 流水线变更。
+- **变更标题**：一句话描述构建/CI 变更。
 ```
 
 ### Rules
@@ -153,7 +157,8 @@ markers; a malformed body leaves some users with no changelog.
    / `### CI / Build` (and the Chinese equivalents). Omit a sub-heading
    if it has no entries; do not leave it empty.
 6. **List items** — `- **Title**: description`. Title bold, colon, space,
-   then 1–3 sentence description.
+   then **one short sentence** (typically under 15 words). No multi-line
+   explanations, no code identifiers, no internal class/method names.
 7. **No raw HTML** — Markdown only.
 8. **No trailing whitespace**.
 9. **English first, Chinese second** — always in this order.
@@ -163,16 +168,17 @@ markers; a malformed body leaves some users with no changelog.
 
 ### What to write
 
-- Be specific. "Fixed a crash" is useless; "Fixed a crash when opening
-  the mod list on Android 9 due to a missing null check in
-  `ModAdapter.bind()`" is useful.
-- Group by user impact, not by commit. Ten commits that fix the same
-  symptom become one bullet.
-- User-facing changes only. Internal refactors with no observable
-  behavior change do not belong in the changelog unless they fix a bug
-  or improve performance the user can feel.
-- The `CI / Build` section is for changes that affect build reliability
-  or CI pipeline behavior. Skip it if there are none.
+- **User-facing only.** Write what the user sees or feels. Internal
+  refactors, dependency bumps, and code cleanup with no observable
+  behavior change do not belong in the changelog.
+- **One bullet per user-visible change.** Group multiple commits that
+  fix the same symptom into a single bullet.
+- **Describe the outcome, not the implementation.** "Fixed some
+  CurseForge mods failing to download" is good. "Added fallback to
+  `/v1/mods/{modId}/files/{fileId}/download-url` endpoint when
+  `downloadUrl` is null" is too detailed for the changelog.
+- **Skip the `CI / Build` section** if there are no user-relevant build
+  changes.
 
 ## Force update
 
