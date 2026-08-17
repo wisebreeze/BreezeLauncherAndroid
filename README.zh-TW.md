@@ -89,6 +89,9 @@ BreezeLauncher 基於以下開源專案構建：
 - [nlohmann/json](https://github.com/nlohmann/json) — 現代 C++ JSON 庫
 - [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — 經由 libHttpClient
 
+**原生（Rust）**
+- [XOR-MC-Archive-Decrypt](https://github.com/HTMonkeyG/XOR-MC-Archive-Decrypt) — 網易 MC 基岩版存檔 XOR 加密/解密（MIT），作者 HTMonkeyG — 移植為 Rust `libmcarchive.so`
+
 ## 授權條款
 
 版權所有 © 2026 wisebreeze。保留所有權利。

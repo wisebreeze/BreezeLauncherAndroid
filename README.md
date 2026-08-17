@@ -89,6 +89,9 @@ BreezeLauncher is built on the following open-source projects:
 - [nlohmann/json](https://github.com/nlohmann/json) — JSON for Modern C++
 - [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — via libHttpClient
 
+**Native (Rust)**
+- [XOR-MC-Archive-Decrypt](https://github.com/HTMonkeyG/XOR-MC-Archive-Decrypt) — NetEase MC Bedrock archive XOR encrypt/decrypt (MIT), by HTMonkeyG — ported to Rust as `libmcarchive.so`
+
 ## License
 
 Copyright © 2026 wisebreeze. All rights reserved.
