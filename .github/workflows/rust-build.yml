@@ -23,7 +23,7 @@ on:
 env:
   RUST_TARGET: 'aarch64-linux-android'
   PRIVATE_REPO: 'wisebreeze/BreezeLauncher'
-  NATIVE_RELEASE_TAG: 'native'
+  ARTIFACT_RELEASE_TAG: 'artifact'
 
 jobs:
   build:
@@ -118,23 +118,26 @@ jobs:
           sha256sum artifact/libmcarchive.so > artifact/libmcarchive.so.sha256
           ls -la artifact/
 
-      - name: Ensure native release exists
+      - name: Ensure artifact release exists
+        # Reuse the same `artifact` release that android.yml uploads APKs
+        # to — no separate native release. .so and APK coexist thanks to
+        # distinct filenames.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ env.NATIVE_RELEASE_TAG }} \
+          gh release create ${{ env.ARTIFACT_RELEASE_TAG }} \
             --repo "${{ github.repository }}" \
-            --title "BreezeLauncher Native Libraries" \
-            --notes "Automated Rust native build artifacts. Latest .so always attached." \
+            --title "BreezeLauncher Build Artifacts" \
+            --notes "Automated build artifacts from CI. Latest APK and native libs are always attached to this release." \
             --draft=false --prerelease=false 2>/dev/null \
-            || gh release view ${{ env.NATIVE_RELEASE_TAG }} --repo "${{ github.repository }}" >/dev/null
+            || gh release view ${{ env.ARTIFACT_RELEASE_TAG }} --repo "${{ github.repository }}" >/dev/null
 
-      - name: Upload .so to native release
+      - name: Upload .so to artifact release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for f in artifact/libmcarchive.so artifact/libmcarchive.so.sha256 artifact/libmcarchive-${{ steps.private_sha.outputs.sha }}.so; do
-            gh release delete-asset ${{ env.NATIVE_RELEASE_TAG }} "$(basename $f)" --repo "${{ github.repository }}" 2>/dev/null || true
-            gh release upload ${{ env.NATIVE_RELEASE_TAG }} "$f" --clobber --repo "${{ github.repository }}"
+            gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "$(basename $f)" --repo "${{ github.repository }}" 2>/dev/null || true
+            gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$f" --clobber --repo "${{ github.repository }}"
           done
-          echo "Uploaded libmcarchive.so (sha ${{ steps.private_sha.outputs.sha }}) to native release"
+          echo "Uploaded libmcarchive.so (sha ${{ steps.private_sha.outputs.sha }}) to artifact release"
