@@ -2,23 +2,17 @@ name: 'Rust Native Build'
 
 # Builds the Rust `mcarchive` crate (NetEase MC Bedrock archive
 # encrypt/decrypt) from the private BreezeLauncher repo into an Android
-# shared library and uploads it to THIS public repo's `native` release.
+# shared library and uploads it to THIS public repo's `artifact` release.
 #
 # The launcher pulls `libmcarchive.so` from that release at build time
 # (see app/build.gradle.kts downloadNativeLibs task), so the Rust
 # toolchain is NOT required for the regular APK build.
 #
 # Triggers:
-#   - workflow_dispatch (manual)
-#   - push to main that touches rust/mcarchive/**
+#   - workflow_dispatch (manual only — run when rust/mcarchive/ changes)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'rust/mcarchive/**'
-      - '.github/workflows/rust-build.yml'
 
 env:
   RUST_TARGET: 'aarch64-linux-android'
