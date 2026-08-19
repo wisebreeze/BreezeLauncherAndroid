@@ -70,7 +70,7 @@ jobs:
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: |
-          git clone --depth 1 --branch main https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
+          git clone --filter=blob:none --depth 1 --branch main https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/${PRIVATE_REPO}.git .
           git config user.name "wisebreeze"
           git config user.email "wisebreeze@users.noreply.github.com"
 
@@ -107,7 +107,10 @@ jobs:
         # don't fetch from upstream. This pins the build to the exact
         # submodule SHA checked into main, making builds reproducible and
         # faster (no extra network round-trip to the submodule remote).
-        run: git submodule update --init --recursive --depth=1
+        # --filter=blob:none: only fetch blobs that CMake actually reads
+        # (libHttpClient is a large Microsoft repo where ~90% of files
+        # are Windows/Xbox/iOS platform code we never compile).
+        run: git submodule update --init --recursive --filter=blob:none --depth=1
         env:
           GIT_LFS_SKIP_SMUDGE: 1
         timeout-minutes: 8
@@ -133,7 +136,14 @@ jobs:
           # NDK version is part of the key because a different NDK produces
           # incompatible .o files; restoring a .cxx built with another NDK
           # would break the link step.
-          key: cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-${{ hashFiles('app/src/main/cpp/**') }}
+          #
+          # hashFiles scope is deliberately narrow: leveldb-src/lib/zlib
+          # (3.6M, 42 .c files) and 24 *_test.cc / db_bench.cc files are
+          # NOT compiled (CMakeLists uses the NDK's libz, tests are never
+          # added to the build), so hashing them only causes spurious cache
+          # misses when those dead files are touched. Only hash the dirs
+          # that actually feed the compiler.
+          key: cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt', 'app/src/main/cpp/breeze/**', 'app/src/main/cpp/inbuiltmods/**', 'app/src/main/cpp/memoryeditor/**', 'app/src/main/cpp/mtbinloader2/**', 'app/src/main/cpp/leveldbjni/**', 'app/src/main/cpp/leveldb-src/src/**', 'app/src/main/cpp/leveldb-src/CMakeLists.txt') }}
           restore-keys: |
             cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-
 
@@ -167,9 +177,37 @@ jobs:
           restore-keys: |
             build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
 
+      - name: Install ccache
+        # ccache wraps the C/C++ compiler and caches preprocessed .o
+        # outputs keyed on source hash + compiler flags. Even when the
+        # .cxx cache misses (C++ source changed, or cache evicted), ccache
+        # restores the .o for any unchanged translation unit in ~ms
+        # instead of recompiling. For the ~53K LOC native tree this turns
+        # a full rebuild from ~3min into ~10s of cache restores.
+        run: |
+          sudo apt-get install -y ccache
+          ccache --version
+          # Default size is 5GB; 2G is enough for this project's ~240
+          # C/C++ TUs and leaves runner disk headroom for Gradle/AGP.
+          ccache -M 2G
+
+      - name: Cache ccache
+        uses: actions/cache@v5
+        with:
+          path: ~/.ccache
+          # Key on the same narrow source set as the .cxx cache so a
+          # C++ edit bumps both consistently. NDK version is in the key
+          # because ccache entries are compiler-version specific.
+          key: ccache-${{ matrix.variant }}-${{ runner.os }}-ndk29-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt', 'app/src/main/cpp/breeze/**', 'app/src/main/cpp/inbuiltmods/**', 'app/src/main/cpp/memoryeditor/**', 'app/src/main/cpp/mtbinloader2/**', 'app/src/main/cpp/leveldbjni/**', 'app/src/main/cpp/leveldb-src/src/**', 'app/src/main/cpp/leveldb-src/CMakeLists.txt') }}
+          restore-keys: |
+            ccache-${{ matrix.variant }}-${{ runner.os }}-ndk29-
+
       - name: Setup Android NDK Environment
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+          # Point ccache at its cache dir and enable stats so the build
+          # log shows hit/miss counts for tuning.
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
       - name: Grant Execute Permission to gradlew
         run: chmod +x ./gradlew
@@ -198,6 +236,14 @@ jobs:
         run: |
           echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ inputs.minify }})..."
           ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --no-daemon --parallel --build-cache --warn
+
+      - name: Show ccache stats
+        # Print hit/miss counts so CI logs show whether the native cache
+        # is actually being reused. A low hit rate on an incremental
+        # build means the cache key is too narrow or ccache is not being
+        # invoked; a high hit rate confirms the speedup is real.
+        if: always()
+        run: ccache -s
 
       - name: Decode and setup keystore
         # The release APK is signed with the production keystore. The
@@ -263,17 +309,17 @@ jobs:
         # when the 10GB repo limit is hit (LRU), so caches keyed on
         # private repo SHA / cpp hash from old commits linger indefinitely.
         # Each private commit creates a new build-{variant}-{...}-{sha}
-        # cache, and each C++ edit creates a new cxx-{variant}-{...}-{cpp}
-        # cache, neither of which is read again once the next commit lands,
+        # cache, and each C++ edit creates new cxx-{...} / ccache-{...}
+        # caches, none of which is read again once the next commit lands,
         # so they pile up and slow down `gh cache list` / restore-key
-        # matching. This step deletes build- and cxx- caches not accessed
-        # in the last 7 days. Runs with `if: always()` so cleanup still
-        # happens when an earlier step fails.
+        # matching. This step deletes build- / cxx- / ccache- caches not
+        # accessed in the last 7 days. Runs with `if: always()` so
+        # cleanup still happens when an earlier step fails.
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for prefix in build- cxx-; do
+          for prefix in build- cxx- ccache-; do
             gh cache list --key "$prefix" --json id,key,lastAccessedAt --limit 200 | \
               python3 -c '
           import sys, json, datetime
