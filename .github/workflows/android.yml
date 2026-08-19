@@ -119,12 +119,29 @@ jobs:
         # apps registered, so FCM/Crashlytics/Analytics work regardless.
         run: bash scripts/switch_package.sh ${{ matrix.package }}
 
+      - name: Cache native build output (.cxx)
+        # CMake's incremental build state lives in app/.cxx. Key it ONLY on
+        # C/C++ sources + CMakeLists + NDK version + variant, so a pure
+        # Kotlin/resource change does NOT invalidate the native cache (the
+        # .so files are unchanged and CMake skips recompilation entirely).
+        # Conversely, a C++ change should NOT invalidate the Kotlin/dex/R8
+        # cache below — splitting the two caches is what keeps a frequent
+        # C++ edit from forcing a full Kotlin recompile + R8 pass.
+        uses: actions/cache@v5
+        with:
+          path: app/.cxx
+          # NDK version is part of the key because a different NDK produces
+          # incompatible .o files; restoring a .cxx built with another NDK
+          # would break the link step.
+          key: cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-${{ hashFiles('app/src/main/cpp/**') }}
+          restore-keys: |
+            cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-
+
       - name: Cache build outputs
         uses: actions/cache@v5
         with:
           path: |
             app/build
-            app/.cxx
             minecraft/build
           # Key on the variant FIRST — different applicationId produces
           # different BuildConfig (APPLICATION_ID) and processed manifest,
@@ -137,18 +154,18 @@ jobs:
           # is this public repo's workflow commit SHA — it would be stale
           # across builds of different private source).
           #
-          # Also key on the C/C++ source hash so a native change bumps
-          # the cache key — without this, a C++ edit would restore a
-          # stale app/build and CMake would still recompile correctly
-          # (incremental), but if app/build was evicted the CMake cache
-          # (.cxx) would be gone and force a full native rebuild.
+          # NOTE: the C/C++ source hash is intentionally NOT part of this
+          # key. Native build state (.cxx) is cached separately above, so
+          # a C++ edit no longer discards the Kotlin/dex/R8 outputs here.
+          # CMake still recompiles correctly (incremental via the .cxx
+          # cache), and the changed .so is picked up by the packaging step.
           #
           # Also key on the minify toggle — minified and unminified
           # builds produce completely different dex/mapping outputs, so
           # a cache restore across the two states would corrupt the build.
-          key: build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-${{ steps.private_sha.outputs.sha }}
+          key: build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ steps.private_sha.outputs.sha }}
           restore-keys: |
-            build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ hashFiles('app/src/main/cpp/**') }}-
+            build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
 
       - name: Setup Android NDK Environment
         run: |
@@ -244,19 +261,21 @@ jobs:
         # Caches live on THIS public repo (caches are scoped per-repo
         # and cannot be shared across repos). GitHub only evicts caches
         # when the 10GB repo limit is hit (LRU), so caches keyed on
-        # private repo SHA from old commits linger indefinitely. Each
-        # private commit creates a new build-{variant}-{...}-{sha} cache
-        # that is never read again once the next commit lands, so they
-        # pile up and slow down `gh cache list` / restore-key matching.
-        # This step deletes build- caches not accessed in the last 7 days.
-        # Runs with `if: always()` so cleanup still happens when an
-        # earlier step fails.
+        # private repo SHA / cpp hash from old commits linger indefinitely.
+        # Each private commit creates a new build-{variant}-{...}-{sha}
+        # cache, and each C++ edit creates a new cxx-{variant}-{...}-{cpp}
+        # cache, neither of which is read again once the next commit lands,
+        # so they pile up and slow down `gh cache list` / restore-key
+        # matching. This step deletes build- and cxx- caches not accessed
+        # in the last 7 days. Runs with `if: always()` so cleanup still
+        # happens when an earlier step fails.
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh cache list --key "build-" --json id,key,lastAccessedAt --limit 200 | \
-            python3 -c '
+          for prefix in build- cxx-; do
+            gh cache list --key "$prefix" --json id,key,lastAccessedAt --limit 200 | \
+              python3 -c '
           import sys, json, datetime
           cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
           for c in json.load(sys.stdin):
@@ -264,8 +283,9 @@ jobs:
               if la < cutoff:
                   print(c["id"])
           ' | while read -r id; do
-            if [ -n "$id" ]; then
-              echo "Deleting stale cache id=$id"
-              gh cache delete "$id" --confirm || true
-            fi
+              if [ -n "$id" ]; then
+                echo "Deleting stale cache id=$id"
+                gh cache delete "$id" --confirm || true
+              fi
+            done
           done
