@@ -225,8 +225,12 @@ jobs:
           - Update changeLog/${{ steps.tag.outputs.version_name }}.md from release body
           - Regenerate update.json (versionCode=${{ steps.tag.outputs.version_code }}, md5=${{ steps.md5.outputs.md5 }})"
           # Checkout is at the tag (detached HEAD) for release events, so
-          # there is no local `main` branch to push. Push the current HEAD
-          # to the remote `main` ref directly.
+          # there is no local `main` branch to push. Rebase the manifest
+          # commit onto the latest remote main first — otherwise re-releasing
+          # an old tag (whose base is behind main) would be rejected as
+          # non-fast-forward. Then push the rebased HEAD to main.
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
           echo "Pushed manifest to main"
 
