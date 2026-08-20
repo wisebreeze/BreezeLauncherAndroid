@@ -132,6 +132,11 @@ jobs:
             echo "::error::No release body found for tag $TAG. Create the release with changelog content as the body."
             exit 1
           fi
+          # Strip a leading top-level heading (e.g. "# 26.8.20") — the
+          # release already has its own title, so a duplicate H1 in the
+          # body is redundant. Only removes the first line if it starts
+          # with "# " followed by the version name or any single-line H1.
+          BODY=$(printf '%s' "$BODY" | sed -E '1{/^# .+$/d}')
           # Persist to a temp file to preserve newlines and avoid shell
           # quoting issues when re-using it later.
           printf '%s' "$BODY" > /tmp/changelog.md
