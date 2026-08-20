@@ -92,19 +92,6 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      - name: Purge stale material3 1.3.x from Gradle cache
-        # The compose BOM was bumped from 2026.06.00 (material3 1.3.x)
-        # to 2026.08.00 (material3 1.4.0). If the runner's Gradle cache
-        # still holds the old 1.3.x artifacts, Gradle may not re-resolve
-        # and the build fails with "Unresolved reference" for the new
-        # M3 Expressive APIs (LinearWavyProgressIndicator, LoadingIndicator,
-        # MaterialExpressiveTheme). Wipe the cached material3 dirs so the
-        # next build re-downloads 1.4.0 fresh.
-        run: |
-          rm -rf ~/.gradle/caches/modules-2/files-2.1/androidx.compose.material3
-          rm -rf ~/.gradle/caches/modules-2/metadata-2.106/descriptors/androidx.compose.material3
-          echo "Purged stale material3 cache"
-
       - name: Cache submodules
         id: cache-submodules
         uses: actions/cache@v5
