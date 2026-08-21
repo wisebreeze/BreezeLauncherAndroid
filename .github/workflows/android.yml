@@ -147,12 +147,32 @@ jobs:
           restore-keys: |
             cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-
 
-      - name: Cache build outputs
+      - name: Cache Minecraft module build output
+        # The `minecraft` Gradle module is a large, rarely-changed Java
+        # library (511 files: Mojang's minecraftpe sources + legacy res).
+        # Its build output (minecraft/build) only depends on the module's
+        # own sources + build.gradle.kts + the shared version catalog,
+        # NOT on app/ Kotlin or app/ resources. Keeping it in a separate
+        # cache keyed only on minecraft/ inputs means a pure app/ change
+        # (the common case) restores the full minecraft .class/.jar
+        # outputs and skips recompiling ~500 files.
+        uses: actions/cache@v5
+        with:
+          path: minecraft/build
+          # Key on the variant (different applicationId can produce
+          # different processed resources) + minecraft source hash +
+          # build.gradle.kts + the shared version catalog. Intentionally
+          # does NOT include the private repo SHA or app/ strings.xml —
+          # those only affect the app module.
+          key: mc-${{ matrix.variant }}-${{ runner.os }}-${{ hashFiles('minecraft/build.gradle.kts', 'gradle/libs.versions.toml', 'minecraft/src/**') }}
+          restore-keys: |
+            mc-${{ matrix.variant }}-${{ runner.os }}-
+
+      - name: Cache app build outputs
         uses: actions/cache@v5
         with:
           path: |
             app/build
-            minecraft/build
           # Key on the variant FIRST — different applicationId produces
           # different BuildConfig (APPLICATION_ID) and processed manifest,
           # so build outputs are NOT interchangeable across variants.
@@ -160,7 +180,7 @@ jobs:
           # the same key and one variant could restore another's stale
           # BuildConfig, producing an APK with the wrong package name.
           #
-          # Also key on the private repo's HEAD SHA (not github.sha which
+          # Also key on the private repo's HEAD sha (not github.sha which
           # is this public repo's workflow commit SHA — it would be stale
           # across builds of different private source).
           #
@@ -169,6 +189,10 @@ jobs:
           # a C++ edit no longer discards the Kotlin/dex/R8 outputs here.
           # CMake still recompiles correctly (incremental via the .cxx
           # cache), and the changed .so is picked up by the packaging step.
+          #
+          # NOTE: minecraft/build is cached separately so a minecraft
+          # source change does NOT invalidate the app cache, and an app
+          # change does NOT invalidate the minecraft cache.
           #
           # Also key on the minify toggle — minified and unminified
           # builds produce completely different dex/mapping outputs, so
@@ -312,14 +336,17 @@ jobs:
         # cache, and each C++ edit creates new cxx-{...} / ccache-{...}
         # caches, none of which is read again once the next commit lands,
         # so they pile up and slow down `gh cache list` / restore-key
-        # matching. This step deletes build- / cxx- / ccache- caches not
-        # accessed in the last 7 days. Runs with `if: always()` so
-        # cleanup still happens when an earlier step fails.
+        # matching. The mc-{variant}-{...} caches are keyed on minecraft
+        # source hash and rarely change, but stale entries from old
+        # variants still accumulate. This step deletes build- / cxx- /
+        # ccache- / mc- caches not accessed in the last 7 days. Runs
+        # with `if: always()` so cleanup still happens when an earlier
+        # step fails.
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for prefix in build- cxx- ccache-; do
+          for prefix in build- cxx- ccache- mc-; do
             gh cache list --key "$prefix" --json id,key,lastAccessedAt --limit 200 | \
               python3 -c '
           import sys, json, datetime
