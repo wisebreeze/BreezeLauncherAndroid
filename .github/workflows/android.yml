@@ -130,6 +130,16 @@ jobs:
         # Conversely, a C++ change should NOT invalidate the Kotlin/dex/R8
         # cache below — splitting the two caches is what keeps a frequent
         # C++ edit from forcing a full Kotlin recompile + R8 pass.
+        #
+        # NO restore-keys: when the C++ source hash changes (e.g. a new
+        # .cpp file added to breeze/), we deliberately do NOT restore any
+        # old .cxx. Restoring a .cxx built from different sources can leave
+        # CMake's build model (android_gradle_build.json) stale — AGP may
+        # not re-configure correctly and the new source file silently
+        # fails to compile into the .so, producing UnsatisfiedLinkError at
+        # runtime. A clean CMake configure on source change is slower by
+        # ~10s but guarantees correctness. ccache (below, with
+        # restore-keys) still eliminates recompilation of unchanged TUs.
         uses: actions/cache@v5
         with:
           path: app/.cxx
@@ -144,8 +154,6 @@ jobs:
           # misses when those dead files are touched. Only hash the dirs
           # that actually feed the compiler.
           key: cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-${{ hashFiles('app/src/main/cpp/**/CMakeLists.txt', 'app/src/main/cpp/breeze/**', 'app/src/main/cpp/inbuiltmods/**', 'app/src/main/cpp/memoryeditor/**', 'app/src/main/cpp/mtbinloader2/**', 'app/src/main/cpp/leveldbjni/**', 'app/src/main/cpp/leveldb-src/src/**', 'app/src/main/cpp/leveldb-src/CMakeLists.txt') }}
-          restore-keys: |
-            cxx-${{ matrix.variant }}-${{ runner.os }}-ndk29-
 
       - name: Cache Minecraft module build output
         # The `minecraft` Gradle module is a large, rarely-changed Java
