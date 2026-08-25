@@ -335,39 +335,25 @@ jobs:
           gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$APK_FILE" --clobber --repo "${{ github.repository }}"
           echo "Uploaded $APK_FILE to artifact release on ${{ github.repository }}"
 
-      - name: Upload R8 mapping to private repo
-        # When R8 minification is enabled, upload mapping.txt to the
-        # private source repo's rolling `mappings` release. The mapping
-        # is required to retrace obfuscated crash stack traces from
-        # release builds. Named by the private repo HEAD SHA so each
-        # build's mapping is uniquely identifiable and retrievable by
-        # the exact commit that produced it. Skipped for non-minified
-        # builds (no R8 → no mapping file generated).
+      - name: Upload R8 mapping to artifact release
+        # When R8 minification is enabled, upload mapping.txt alongside
+        # the APK to the same rolling `artifact` release on THIS repo.
+        # The mapping is required to retrace obfuscated crash stack
+        # traces from release builds. Always named mapping.txt so the
+        # latest build's mapping is always at a stable URL. Skipped for
+        # non-minified builds (no R8 → no mapping file generated).
         if: ${{ inputs.minify == true }}
         env:
-          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          PRIVATE_SHA: ${{ steps.private_sha.outputs.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           MAPPING_FILE="app/build/outputs/mapping/release/mapping.txt"
           if [ ! -f "$MAPPING_FILE" ]; then
             echo "::error::mapping.txt not found at $MAPPING_FILE (minify was on but R8 produced no mapping)"
             exit 1
           fi
-          SHORT_SHA="${PRIVATE_SHA::7}"
-          ASSET_NAME="mapping-${SHORT_SHA}.txt"
-          # Create the rolling mappings release on the private repo if
-          # it doesn't exist yet. `|| true` tolerates the race when run
-          # from parallel matrix jobs (only default variant is active
-          # now, but keep it future-proof).
-          gh release create mappings \
-            --repo "${{ env.PRIVATE_REPO }}" \
-            --title "R8 Mapping Files" \
-            --notes "R8 mapping.txt from minified release builds, keyed by private repo HEAD SHA." \
-            --draft=false --prerelease=false 2>/dev/null || \
-            gh release view mappings --repo "${{ env.PRIVATE_REPO }}" >/dev/null
-          cp "$MAPPING_FILE" "$ASSET_NAME"
-          gh release upload mappings "$ASSET_NAME" --clobber --repo "${{ env.PRIVATE_REPO }}"
-          echo "Uploaded $ASSET_NAME to ${{ env.PRIVATE_REPO }} release 'mappings'"
+          gh release delete-asset ${{ env.ARTIFACT_RELEASE_TAG }} "mapping.txt" --repo "${{ github.repository }}" 2>/dev/null || true
+          gh release upload ${{ env.ARTIFACT_RELEASE_TAG }} "$MAPPING_FILE" --clobber --repo "${{ github.repository }}"
+          echo "Uploaded mapping.txt to artifact release on ${{ github.repository }}"
 
       - name: Cleanup stale build caches
         # Caches live on THIS public repo (caches are scoped per-repo
