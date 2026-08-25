@@ -4,16 +4,14 @@ name: 'Android CI'
 # consume GitHub Actions free minutes (2000/min/month for private repos).
 # Source code is cloned from the private BreezeLauncher repo at build time.
 #
-# Minify toggle (workflow_dispatch input, default OFF):
-#   OFF: skips R8. ~3min faster. APK uploads to THIS public repo's
-#     `artifact` release for testing/verification.
-#   ON: full R8. APK uploads to THIS public repo's `artifact` release
-#     — this is the canonical name that release-on-tag.yml pulls for
-#     versioned releases.
-# Both builds share the same filename, so uploading a non-R8 build
-# overwrites the previous R8 build (and vice versa). Run minify=ON
-# before publishing a versioned release so the artifact release holds
-# the R8 build when release-on-tag.yml fires.
+# Minify toggle:
+#   repository_dispatch (auto, fired by private repo push webhook):
+#     R8 ON by default — the artifact release always holds a minified,
+#     release-ready APK so release-on-tag.yml can pull a valid build.
+#   workflow_dispatch (manual): R8 OFF by default for faster iteration
+#     (~3min saved); toggle ON when preparing a versioned release.
+# Both builds share the same APK filename, so uploading a non-R8 build
+# overwrites the previous R8 build (and vice versa).
 #
 # Three variants are built in parallel, each with a different applicationId:
 #   default   -> com.wisebreeze.launcher  (BreezeLauncher-default-release.apk)
@@ -82,6 +80,22 @@ jobs:
         # builds. Use the private repo's HEAD SHA instead.
         id: private_sha
         run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Resolve minify toggle
+        # Auto-triggered builds (repository_dispatch, fired by the
+        # private repo's push webhook) default to R8 ON so the artifact
+        # release always holds a minified, release-ready APK. Manual
+        # workflow_dispatch runs honor the explicit input (default OFF
+        # for faster iteration). Resolved once here so downstream steps
+        # reference a single source of truth instead of repeating the
+        # event-name check.
+        id: resolve_minify
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ] || [ "${{ inputs.minify }}" = "true" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Java JDK
         # Must come AFTER checkout so `cache: gradle` can locate
@@ -205,9 +219,9 @@ jobs:
           # Also key on the minify toggle — minified and unminified
           # builds produce completely different dex/mapping outputs, so
           # a cache restore across the two states would corrupt the build.
-          key: build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ steps.private_sha.outputs.sha }}
+          key: build-${{ matrix.variant }}-${{ steps.resolve_minify.outputs.enabled == 'true' && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-${{ steps.private_sha.outputs.sha }}
           restore-keys: |
-            build-${{ matrix.variant }}-${{ inputs.minify == true && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
+            build-${{ matrix.variant }}-${{ steps.resolve_minify.outputs.enabled == 'true' && 'min' || 'nom' }}-${{ runner.os }}-${{ hashFiles('gradle.properties', 'gradle/libs.versions.toml', 'settings.gradle.kts') }}-${{ hashFiles('app/src/main/res/**/strings.xml') }}-
 
       - name: Install ccache
         # ccache wraps the C/C++ compiler and caches preprocessed .o
@@ -258,7 +272,7 @@ jobs:
           echo "final_name=${{ env.APP_NAME }}-${{ matrix.variant }}-release.apk" >> $GITHUB_OUTPUT
           # Pass -Pbreeze.minify=false when minify is off so the Gradle
           # build skips R8 + resource shrinking entirely.
-          if [ "${{ inputs.minify }}" = "true" ]; then
+          if [ "${{ steps.resolve_minify.outputs.enabled }}" = "true" ]; then
             echo "gradle_args=" >> $GITHUB_OUTPUT
           else
             echo "gradle_args=-Pbreeze.minify=false" >> $GITHUB_OUTPUT
@@ -266,7 +280,7 @@ jobs:
 
       - name: Build APK
         run: |
-          echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ inputs.minify }})..."
+          echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ steps.resolve_minify.outputs.enabled }})..."
           ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --no-daemon --parallel --build-cache --warn
 
       - name: Show ccache stats
@@ -342,7 +356,7 @@ jobs:
         # traces from release builds. Always named mapping.txt so the
         # latest build's mapping is always at a stable URL. Skipped for
         # non-minified builds (no R8 → no mapping file generated).
-        if: ${{ inputs.minify == true }}
+        if: ${{ steps.resolve_minify.outputs.enabled == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
