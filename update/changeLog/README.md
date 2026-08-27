@@ -26,8 +26,6 @@ entries get truncated and ignored.
 ### Structure
 
 ```markdown
-# <versionName>
-
 ## English
 
 ### New Features
@@ -69,7 +67,9 @@ entries get truncated and ignored.
 
 ### Rules
 
-1. **Top-level heading** — exactly one `# <versionName>` line at the top.
+1. **No top-level heading** — the release title (which mirrors the tag,
+   e.g. `v26.7.17`) already serves as the heading. Do **not** start the
+   body with `# <versionName>`; it would duplicate the release title.
 2. **English section** — starts with `## English` and contains all
    English content until the separator.
 3. **Separator** — a single `---` line on its own, between the English

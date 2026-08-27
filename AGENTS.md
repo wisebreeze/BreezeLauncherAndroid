@@ -45,8 +45,9 @@ https://github.com/wisebreeze/BreezeLauncherAndroid/releases/new
 - **Choose a tag**: type `v<versionName>` (e.g. `v26.7.17`) and select
   "Create new tag: v<versionName> on publish". The tag is created from
   `main` automatically when you publish.
-- **Release title**: the bare versionName, e.g. `26.7.17`. (Cosmetic;
-  the app does not read it.)
+- **Release title**: `v<versionName>`, e.g. `v26.7.17`. This matches the
+  tag and is what users see on the release page. (Cosmetic; the app does
+  not read it.)
 - **Description**: paste the bilingual changelog following the format
   in [update/changeLog/README.md](update/changeLog/README.md). The
   workflow saves this body verbatim as
@@ -104,8 +105,6 @@ internal jargon. Users read this in a small update dialog; long
 entries get truncated and ignored.
 
 ```markdown
-# <versionName>
-
 ## English
 
 ### New Features
@@ -147,7 +146,9 @@ entries get truncated and ignored.
 
 ### Rules
 
-1. **One top-level heading** — `# <versionName>` on the first line.
+1. **No top-level heading** — the release title (which mirrors the tag,
+   e.g. `v26.7.17`) already serves as the heading. Do **not** start the
+   body with `# <versionName>`; it would duplicate the release title.
 2. **English section** — starts with `## English`, runs until the `---`
    separator.
 3. **Separator** — exactly one `---` line between the two sections. No
