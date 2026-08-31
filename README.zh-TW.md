@@ -51,13 +51,13 @@ BreezeLauncher 是一款面向 Android 平台 Minecraft 的現代化高效能啟
 BreezeLauncher 基於以下開源專案構建：
 
 **AndroidX / Jetpack**
-- [AndroidX](https://developer.android.com/jetpack/androidx) — AppCompat、Activity、Fragment、Annotation、Browser、ConstraintLayout、Core Splashscreen、Dynamic Animation、Preference、Lifecycle、Room、SQLite、Work Manager
-- [Jetpack Compose](https://developer.android.com/jetpack/compose) — UI 工具包（Compose UI、Material3、Material Icons）
-- [AndroidX Media3](https://developer.android.com/media/media3) — 媒體播放（ExoPlayer、UI）
-- [AndroidX Games Activity](https://developer.android.com/games/agk/activity) — 原生 Activity 封裝
+- [AndroidX](https://developer.android.com/jetpack/androidx) — Android 核心庫
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) — UI 工具包
+- [AndroidX Media3](https://developer.android.com/media/media3) — 媒體播放
+- [AndroidX Games Activity](https://developer.android.com/games/agk/activity) — 遊戲 Activity 封裝
 
 **Kotlin / 構建**
-- [Kotlin](https://kotlinlang.org/) — 程式語言與 Compose 編譯器外掛
+- [Kotlin](https://kotlinlang.org/) — 程式語言
 - [Android Gradle Plugin](https://developer.android.com/build) — 構建系統
 - [Google Services Gradle Plugin](https://developers.google.com/android/guides/google-services-plugin) — Firebase 設定
 
@@ -68,20 +68,20 @@ BreezeLauncher 基於以下開源專案構建：
 - [CloudburstMC Bedrock protocol](https://github.com/CloudburstMC/Network) — 基岩版協定庫
 
 **密碼學**
-- [Bouncy Castle](https://www.bouncycastle.org/) — Java 加密提供者（bcprov-jdk15on）
-- [Conscrypt](https://github.com/google/conscrypt) — Android TLS 提供者
-- [Spongy Castle](https://github.com/rtyley/spongycastle) — Bouncy Castle 的 Android 重新打包版（core、prov、pkix）
+- [Bouncy Castle](https://www.bouncycastle.org/) — 加密提供者
+- [Conscrypt](https://github.com/google/conscrypt) — TLS 提供者
+- [Spongy Castle](https://github.com/rtyley/spongycastle) — Bouncy Castle 的 Android 版
 
 **Firebase / Google 服務**
-- [Firebase](https://firebase.google.com/) — Analytics、Crashlytics（含 NDK）、Cloud Messaging、Instance ID
+- [Firebase](https://firebase.google.com/) — 分析、崩潰報告、訊息推送
 - [Google Play Services Games v2](https://developers.google.com/games/services/v2/android) — 遊戲服務
 - [Google Play Billing](https://developer.android.com/google/play/billing) — 應用程式內購買
 - [Material Components for Android](https://github.com/material-components/material-components-android)
 
 **UI / 媒體 / 工具**
-- [Coil](https://coil-kt.github.io/coil/) — 圖片載入（coil-compose、coil-network-okhttp）
+- [Coil](https://coil-kt.github.io/coil/) — 圖片載入
 - [EasyCrop](https://github.com/mr0xf00/easycrop) — 圖片裁剪
-- [Reorderable](https://github.com/Calvin-LL/Reorderable) — Compose 拖曳排序
+- [Reorderable](https://github.com/Calvin-LL/Reorderable) — 拖曳排序
 - [ZXing](https://github.com/zxing/zxing) — 二維碼生成
 - [Gson](https://github.com/google/gson) — JSON 序列化
 - [Simple XML](https://simple.sourceforge.net/) — XML 序列化
@@ -89,23 +89,17 @@ BreezeLauncher 基於以下開源專案構建：
 - [JetBrains Annotations](https://github.com/JetBrains/java-annotations)
 
 **系統 / Shell**
-- [Shizuku](https://github.com/RikkaApps/Shizuku) — 特權 Shell 服務（API + provider）
-- [xCrash](https://github.com/RadiantByte/xCrash) — 原生崩潰捕獲
-- [SLF4J](https://www.slf4j.org/) — 日誌門面
+- [Shizuku](https://github.com/RikkaApps/Shizuku) — 特權 Shell 服務
+- [xCrash](https://github.com/RadiantByte/xCrash) — 崩潰捕獲
+- [SLF4J](https://www.slf4j.org/) — 日誌
 
-**Web / 嵌入式引擎**
-- [Mozilla GeckoView](https://mozilla.github.io/geckoview/) — 嵌入式 Web 引擎（arm64-v8a）
-
-**原生（C++）子模組**
-- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — 上游啟動器與預載入器子系統（Apache-2.0），作者 LeviMC Team
-- [preloader-android](https://github.com/wisebreeze/preloader-android) — 原生模組載入子系統（fork 自 LeviLaunchroid）
-- [libHttpClient](https://github.com/microsoft/libHttpClient) — 微軟 HTTP 用戶端（C++）
-- [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — 後端 API 綁定（C++）
-- [nlohmann/json](https://github.com/nlohmann/json) — 現代 C++ JSON 庫
-- [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — 經由 libHttpClient
-
-**原生（Rust）**
-- [XOR-MC-Archive-Decrypt](https://github.com/HTMonkeyG/XOR-MC-Archive-Decrypt) — 網易 MC 基岩版存檔 XOR 加密/解密（MIT），作者 HTMonkeyG — 移植為 Rust `libmcarchive.so`
+**子模組**
+- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — 上游啟動器與預載入器子系統
+- [preloader-android](https://github.com/wisebreeze/preloader-android) — 模組載入子系統
+- [libHttpClient](https://github.com/microsoft/libHttpClient) — 微軟 HTTP 用戶端
+- [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — 後端 API 綁定
+- [nlohmann/json](https://github.com/nlohmann/json) — JSON 庫
+- [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — 遊戲服務
 
 ## 授權條款
 

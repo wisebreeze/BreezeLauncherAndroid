@@ -51,13 +51,13 @@ Pre-built release APKs are published on the [Releases](https://github.com/wisebr
 BreezeLauncher is built on the following open-source projects:
 
 **AndroidX / Jetpack**
-- [AndroidX](https://developer.android.com/jetpack/androidx) — AppCompat, Activity, Fragment, Annotation, Browser, ConstraintLayout, Core Splashscreen, Dynamic Animation, Preference, Lifecycle, Room, SQLite, Work Manager
-- [Jetpack Compose](https://developer.android.com/jetpack/compose) — UI toolkit (Compose UI, Material3, Material Icons)
-- [AndroidX Media3](https://developer.android.com/media/media3) — media playback (ExoPlayer, UI)
-- [AndroidX Games Activity](https://developer.android.com/games/agk/activity) — native activity wrapper
+- [AndroidX](https://developer.android.com/jetpack/androidx) — core Android libraries
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) — UI toolkit
+- [AndroidX Media3](https://developer.android.com/media/media3) — media playback
+- [AndroidX Games Activity](https://developer.android.com/games/agk/activity) — game activity wrapper
 
 **Kotlin / Build**
-- [Kotlin](https://kotlinlang.org/) — programming language & Compose compiler plugin
+- [Kotlin](https://kotlinlang.org/) — programming language
 - [Android Gradle Plugin](https://developer.android.com/build) — build system
 - [Google Services Gradle Plugin](https://developers.google.com/android/guides/google-services-plugin) — Firebase config
 
@@ -68,20 +68,20 @@ BreezeLauncher is built on the following open-source projects:
 - [CloudburstMC Bedrock protocol](https://github.com/CloudburstMC/Network) — Bedrock Edition protocol library
 
 **Cryptography**
-- [Bouncy Castle](https://www.bouncycastle.org/) — Java cryptography provider (bcprov-jdk15on)
-- [Conscrypt](https://github.com/google/conscrypt) — TLS provider for Android
-- [Spongy Castle](https://github.com/rtyley/spongycastle) — Bouncy Castle repackaged for Android (core, prov, pkix)
+- [Bouncy Castle](https://www.bouncycastle.org/) — cryptography provider
+- [Conscrypt](https://github.com/google/conscrypt) — TLS provider
+- [Spongy Castle](https://github.com/rtyley/spongycastle) — Bouncy Castle for Android
 
 **Firebase / Google Services**
-- [Firebase](https://firebase.google.com/) — Analytics, Crashlytics (incl. NDK), Cloud Messaging, Instance ID
+- [Firebase](https://firebase.google.com/) — analytics, crash reporting, messaging
 - [Google Play Services Games v2](https://developers.google.com/games/services/v2/android) — games services
 - [Google Play Billing](https://developer.android.com/google/play/billing) — in-app purchases
 - [Material Components for Android](https://github.com/material-components/material-components-android)
 
 **UI / Media / Utilities**
-- [Coil](https://coil-kt.github.io/coil/) — image loading (coil-compose, coil-network-okhttp)
+- [Coil](https://coil-kt.github.io/coil/) — image loading
 - [EasyCrop](https://github.com/mr0xf00/easycrop) — image cropping
-- [Reorderable](https://github.com/Calvin-LL/Reorderable) — drag-to-reorder for Compose
+- [Reorderable](https://github.com/Calvin-LL/Reorderable) — drag-to-reorder
 - [ZXing](https://github.com/zxing/zxing) — QR code generation
 - [Gson](https://github.com/google/gson) — JSON serialization
 - [Simple XML](https://simple.sourceforge.net/) — XML serialization
@@ -89,23 +89,17 @@ BreezeLauncher is built on the following open-source projects:
 - [JetBrains Annotations](https://github.com/JetBrains/java-annotations)
 
 **System / Shell**
-- [Shizuku](https://github.com/RikkaApps/Shizuku) — privileged shell service (API + provider)
-- [xCrash](https://github.com/RadiantByte/xCrash) — native crash capture
-- [SLF4J](https://www.slf4j.org/) — logging facade
+- [Shizuku](https://github.com/RikkaApps/Shizuku) — privileged shell service
+- [xCrash](https://github.com/RadiantByte/xCrash) — crash capture
+- [SLF4J](https://www.slf4j.org/) — logging
 
-**Web / Embedded Engine**
-- [Mozilla GeckoView](https://mozilla.github.io/geckoview/) — embedded web engine (arm64-v8a)
-
-**Native (C++) Submodules**
-- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — upstream launcher & preloader subsystem (Apache-2.0), by LeviMC Team
-- [preloader-android](https://github.com/wisebreeze/preloader-android) — native mod loading subsystem (forked from LeviLaunchroid)
-- [libHttpClient](https://github.com/microsoft/libHttpClient) — Microsoft HTTP client (C++)
-- [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — backend API bindings (C++)
-- [nlohmann/json](https://github.com/nlohmann/json) — JSON for Modern C++
-- [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — via libHttpClient
-
-**Native (Rust)**
-- [XOR-MC-Archive-Decrypt](https://github.com/HTMonkeyG/XOR-MC-Archive-Decrypt) — NetEase MC Bedrock archive XOR encrypt/decrypt (MIT), by HTMonkeyG — ported to Rust as `libmcarchive.so`
+**Submodules**
+- [LeviLaunchroid](https://github.com/LiteLDev/LeviLaunchroid) — upstream launcher & preloader subsystem
+- [preloader-android](https://github.com/wisebreeze/preloader-android) — mod loading subsystem
+- [libHttpClient](https://github.com/microsoft/libHttpClient) — Microsoft HTTP client
+- [BreezeAPI](https://github.com/wisebreeze/BreezeAPI) — backend API bindings
+- [nlohmann/json](https://github.com/nlohmann/json) — JSON library
+- [Google Play Games C SDK](https://developers.google.com/games/services/v2/native) — games services
 
 ## License
 
