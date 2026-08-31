@@ -24,11 +24,23 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 ## Features
 
 - **Multi-version management** — install, isolate, and switch between multiple Minecraft versions side by side
-- **Native mod loading** — load C++ mods at runtime via a preloader subsystem, with an in-app mod menu for toggling and configuration
-- **Built-in mods** — FPS overlay, zoom, snaplook, and more, shipped out of the box
-- **Account management** — Microsoft / Xbox Live login with token persistence and automatic refresh
-- **World & resource management** — create, edit, import, and export worlds and resource packs
-- **Compatibility framework** — optional standalone preloader app for running LeviLaunchroid-compatible native mods
+- **Mod loading** — load mods at runtime with an in-app mod menu for toggling and configuration
+- **Built-in mods** — FPS counter, zoom, snaplook, gyroscope aim, virtual cursor, auto-sprint, quick drop, CPS counter, and more, shipped out of the box
+- **In-game overlay** — a floating panel over the running game for mods, music, chat, browser, console, and quick settings without leaving the game
+- **Account management** — Microsoft / Xbox Live login with automatic token refresh
+- **World & resource management** — create, edit, import, and export worlds, resource packs, and structures
+- **World editor** — edit player data, structures, and NBT data; search across all NBT records; manage multiplayer and invincibility settings; generate flat worlds
+- **Music player** — search and play music from NetEase Cloud Music and Bilibili with playlists, lyrics, and background playback
+- **Built-in browser** — browse the web inside the launcher without leaving the game
+- **Community** — share and discover user-created mods, resource packs, and other resources
+- **Mod store** — browse and install mods from CurseForge directly
+- **Server list** — save and ping Bedrock servers, join with one tap
+- **Chat** — world channel and private messages with online user list
+- **AI assistant** — an in-app AI helper for questions and tasks
+- **Screenshots** — capture and manage in-game screenshots
+- **Patch notes** — view the latest Minecraft patch notes
+- **Silent updates** — install app updates in the background via Shizuku without prompts
+- **Multi-language** — 15 languages with full localization
 
 ## Downloads
 
