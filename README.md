@@ -30,7 +30,7 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 - **Account management** — Microsoft / Xbox Live login with automatic token refresh
 - **World & resource management** — create, edit, import, and export worlds, resource packs, and structures
 - **World editor** — edit player data, structures, and NBT data; search across all NBT records; manage multiplayer and invincibility settings; generate flat worlds
-- **Music player** — search and play music from NetEase Cloud Music and Bilibili with playlists, lyrics, and background playback
+- **Music player** — search and play music with playlists, lyrics, and background playback
 - **Built-in browser** — browse the web inside the launcher without leaving the game
 - **Community** — share and discover user-created mods, resource packs, and other resources
 - **Mod store** — browse and install mods from CurseForge directly
