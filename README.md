@@ -19,7 +19,7 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 
 ## Requirements
 
-- A legitimate copy of **Minecraft** purchased and downloaded from **Google Play** on the same device. BreezeLauncher launches **only** the Google Play version of Minecraft; versions from any other source (e.g. sideloaded APKs, third-party stores, modified builds) are not supported and will not be detected by the launcher.
+- A legitimate copy of **Minecraft** purchased and downloaded from **Google Play** on the same device. BreezeLauncher launches **only** the Google Play version of Minecraft; versions from any other source are not supported.
 
 ## Features
 

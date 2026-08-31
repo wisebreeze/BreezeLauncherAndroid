@@ -19,7 +19,7 @@ BreezeLauncher 是一款面向 Android 平台 Minecraft 的現代化高效能啟
 
 ## 使用前提
 
-- 需在同一裝置上從 **Google Play** 購買並下載的**正版 Minecraft**。BreezeLauncher **僅**支援啟動 Google Play 版本的 Minecraft，不支援其他來源（如自行側載 APK、第三方商店、修改版）的版本，啟動器也無法識別這些版本。
+- 需在同一裝置上從 **Google Play** 購買並下載的**正版 Minecraft**。BreezeLauncher **僅**支援啟動 Google Play 版本的 Minecraft，不支援其他來源的版本。
 
 ## 功能特色
 
