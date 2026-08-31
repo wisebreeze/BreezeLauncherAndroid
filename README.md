@@ -10,7 +10,7 @@
 
 ---
 
-BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. It provides a smooth, native experience for managing game versions, mods, accounts, and worlds — built with a Jetpack Compose UI and a C++ native core for critical operations.
+BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. It provides a smooth, native experience for managing game versions, mods, accounts, and worlds.
 
 > [!IMPORTANT]
 > **Disclaimer**

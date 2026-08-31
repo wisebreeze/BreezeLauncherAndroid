@@ -10,7 +10,7 @@
 
 ---
 
-BreezeLauncher 是一款面向 Android 平台 Minecraft 的现代化高性能启动器。它提供流畅的原生体验，用于管理游戏版本、模组、账户和存档——基于 Jetpack Compose UI 与 C++ 原生核心构建，关键逻辑运行在 native 层。
+BreezeLauncher 是一款面向 Android 平台 Minecraft 的现代化高性能启动器。它提供流畅的原生体验，用于管理游戏版本、模组、账户和存档。
 
 > [!IMPORTANT]
 > **免责声明**
