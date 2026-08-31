@@ -17,6 +17,10 @@ BreezeLauncher 是一款面向 Android 平台 Minecraft 的現代化高效能啟
 >
 > BreezeLauncher **與 Mojang Studios、Microsoft 或任何其他第三方均無關聯、未獲認可、也未受其贊助**。本作品**非官方 Minecraft 產品**，也**非任何第三方專案的官方倉庫**。Minecraft 是 Mojang Studios 的商標。所有產品名稱、徽標和品牌均歸其各自所有者所有。
 
+## 使用前提
+
+- 需在同一裝置上從 **Google Play** 購買並下載的**正版 Minecraft**。BreezeLauncher **僅**支援啟動 Google Play 版本的 Minecraft，不支援其他來源（如自行側載 APK、第三方商店、修改版）的版本，啟動器也無法識別這些版本。
+
 ## 功能特色
 
 - **多版本管理** — 並行安裝、隔離與切換多個 Minecraft 版本

@@ -17,6 +17,10 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 >
 > BreezeLauncher is **not affiliated with, endorsed by, or sponsored by** Mojang Studios, Microsoft, or any other third party. This is **not an official Minecraft product** and is **not an official repository** of any third-party project. Minecraft is a trademark of Mojang Studios. All product names, logos, and brands are property of their respective owners.
 
+## Requirements
+
+- A legitimate copy of **Minecraft** purchased and downloaded from **Google Play** on the same device. BreezeLauncher launches **only** the Google Play version of Minecraft; versions from any other source (e.g. sideloaded APKs, third-party stores, modified builds) are not supported and will not be detected by the launcher.
+
 ## Features
 
 - **Multi-version management** — install, isolate, and switch between multiple Minecraft versions side by side
