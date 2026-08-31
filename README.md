@@ -29,7 +29,6 @@ BreezeLauncher is a modern, high-performance launcher for Minecraft on Android. 
 - **Account management** — Microsoft / Xbox Live login with token persistence and automatic refresh
 - **World & resource management** — create, edit, import, and export worlds and resource packs
 - **Compatibility framework** — optional standalone preloader app for running LeviLaunchroid-compatible native mods
-- **Multi-package builds** — parallel CI produces three signed variants (default, preloader-compatible, and benchmark-disguised) from a single source tree
 
 ## Downloads
 
