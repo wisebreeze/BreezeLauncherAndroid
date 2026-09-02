@@ -1,9 +1,9 @@
 {
-  "version": "26.8.30-fixed2",
-  "versionCode": 26083016,
+  "version": "26.9.2",
+  "versionCode": 26090208,
   "forceUpdate": false,
   "forceUpdateBelowVersionCode": 260700,
-  "download": "https://github.com/wisebreeze/BreezeLauncherAndroid/releases/download/v26.8.30-fixed2/BreezeLauncher-default-release.apk",
-  "md5": "77b8180fbf50c4e66f6fe86054c0d38a",
-  "changeLog": "https://gitee.com/wisebreeze/BreezeLauncherApp/raw/main/changeLog/26.8.30-fixed2.md"
+  "download": "https://github.com/wisebreeze/BreezeLauncherAndroid/releases/download/v26.9.2/BreezeLauncher-default-release.apk",
+  "md5": "b40f97e28378a4c075b337baa1849e1c",
+  "changeLog": "https://gitee.com/wisebreeze/BreezeLauncherApp/raw/main/changeLog/26.9.2.md"
 }
