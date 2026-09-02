@@ -32,7 +32,7 @@ on:
     types: [upstream-changed]
 
 env:
-  GRADLE_OPTS: "-Xmx4g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
+  GRADLE_OPTS: "-Xmx6g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
   APP_NAME: "BreezeLauncher"
   JAVA_VERSION: "21"
   ARTIFACT_RELEASE_TAG: "artifact"
