@@ -279,6 +279,7 @@ jobs:
           fi
 
       - name: Build APK
+        timeout-minutes: 15
         run: |
           echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ steps.resolve_minify.outputs.enabled }})..."
           ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --no-daemon --parallel --build-cache --warn
