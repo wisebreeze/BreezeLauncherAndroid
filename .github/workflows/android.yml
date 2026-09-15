@@ -32,7 +32,7 @@ on:
     types: [upstream-changed]
 
 env:
-  GRADLE_OPTS: "-Xmx6g -Dorg.gradle.daemon=false -Dorg.gradle.welcome.provider.enabled=false"
+  GRADLE_OPTS: "-Xmx6g -Dorg.gradle.welcome.provider.enabled=false"
   APP_NAME: "BreezeLauncher"
   JAVA_VERSION: "21"
   ARTIFACT_RELEASE_TAG: "artifact"
@@ -282,7 +282,7 @@ jobs:
         timeout-minutes: 15
         run: |
           echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ steps.resolve_minify.outputs.enabled }})..."
-          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --no-daemon --parallel --build-cache --warn
+          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} --quiet
 
       - name: Show ccache stats
         # Print hit/miss counts so CI logs show whether the native cache
