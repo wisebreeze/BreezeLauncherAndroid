@@ -178,6 +178,15 @@ entries get truncated and ignored.
   CurseForge mods failing to download" is good. "Added fallback to
   `/v1/mods/{modId}/files/{fileId}/download-url` endpoint when
   `downloadUrl` is null" is too detailed for the changelog.
+- **No technical details.** Never mention API endpoints, class names,
+  method names, file paths, JNI symbols, library names, config keys,
+  JSON field names, or internal architecture. The changelog is read by
+  end users, not developers. "Added settings page for native mods" is
+  good; "Added RuntimeModConfigActivity that calls
+  ExternalModBridge.getExternalModConfigSchema" is forbidden.
+- **One short sentence per bullet.** If a change needs more than one
+  sentence to explain to a non-technical user, it is too detailed —
+  rewrite it shorter or split into separate bullets.
 - **Skip the `CI / Build` section** if there are no user-relevant build
   changes.
 
