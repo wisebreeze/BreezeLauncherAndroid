@@ -294,6 +294,10 @@ jobs:
           PY
 
       - name: Sync update manifest to Gitee
+        # Gitee sync is best-effort: if it fails (token missing, Gitee
+        # down, etc.) the release is still considered successful and
+        # downstream steps (Discord notification) must still run.
+        continue-on-error: true
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
