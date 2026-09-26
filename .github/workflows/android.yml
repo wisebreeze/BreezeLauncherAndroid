@@ -282,7 +282,14 @@ jobs:
         timeout-minutes: 15
         run: |
           echo "Building ${{ steps.apk_name.outputs.build_type }} APK (variant=${{ matrix.variant }}, package=${{ matrix.package }}, minify=${{ steps.resolve_minify.outputs.enabled }})..."
-          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }}
+          # Suppress the verbose C/C++ per-TU progress lines that AGP's
+          # CmakeBuildTask prefixes with "C/C++: " (e.g. "[1/261] Building
+          # CXX object ..."). Everything else — warnings, errors, Gradle
+          # task names, BUILD FAILED summaries — streams through in real
+          # time. pipefail ensures a non-zero gradlew exit propagates.
+          set -o pipefail
+          ./gradlew ${{ steps.apk_name.outputs.assemble_task }} ${{ steps.apk_name.outputs.gradle_args }} 2>&1 \
+            | grep -vE '^C/C\+\+: (\[[0-9]+/[0-9]+\] Building|ninja: Entering directory|-- Generating done|-- Build files have been written to)'
 
       - name: Show ccache stats
         # Print hit/miss counts so CI logs show whether the native cache
