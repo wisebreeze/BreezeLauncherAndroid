@@ -6,10 +6,10 @@ name: 'Android CI'
 #
 # Minify toggle:
 #   repository_dispatch (auto, fired by private repo push webhook):
-#     R8 ON by default — the artifact release always holds a minified,
+#     R8 ON — the artifact release always holds a minified,
 #     release-ready APK so release-on-tag.yml can pull a valid build.
-#   workflow_dispatch (manual): R8 OFF by default for faster iteration
-#     (~3min saved); toggle ON when preparing a versioned release.
+#   workflow_dispatch (manual): R8 ON by default as well; toggle OFF
+#     only for fast iteration/debugging (~3min saved).
 # Both builds share the same APK filename, so uploading a non-R8 build
 # overwrites the previous R8 build (and vice versa).
 #
@@ -27,7 +27,7 @@ on:
       minify:
         description: 'R8 minify'
         type: boolean
-        default: false
+        default: true
   repository_dispatch:
     types: [upstream-changed]
 
@@ -83,10 +83,9 @@ jobs:
 
       - name: Resolve minify toggle
         # Auto-triggered builds (repository_dispatch, fired by the
-        # private repo's push webhook) default to R8 ON so the artifact
-        # release always holds a minified, release-ready APK. Manual
-        # workflow_dispatch runs honor the explicit input (default OFF
-        # for faster iteration). Resolved once here so downstream steps
+        # private repo's push webhook) always run R8 ON. Manual
+        # workflow_dispatch runs honor the explicit input (now defaulting
+        # to ON as well). Resolved once here so downstream steps
         # reference a single source of truth instead of repeating the
         # event-name check.
         id: resolve_minify
